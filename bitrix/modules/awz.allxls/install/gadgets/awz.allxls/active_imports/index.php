@@ -49,7 +49,7 @@ function gdAwzAllxlsFmt(\DateInterval $diff): string
 }
 
 /**
- * Секунды → человекочитаемый интервал (1 ч 05 мин / 4 мин 20 сек / 45 сек)
+ * Секунды -> человекочитаемый интервал (1 ч 05 мин / 4 мин 20 сек / 45 сек)
  */
 function gdAwzAllxlsSec(int $sec): string
 {
