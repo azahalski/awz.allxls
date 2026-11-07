@@ -1,0 +1,368 @@
+/* AWZ.AllXLS: стили страницы редактирования профиля (этап 1 — создание профиля) */
+/* блок сопоставления: селект + иконка настроек */
+.awz-allxls-map-item{display:flex;align-items:flex-start;gap:0px;margin-bottom:4px;
+    flex-direction: row;
+    flex-wrap: nowrap;
+    justify-content: flex-start;
+    align-items: center;
+}
+.awz-allxls-map-item__gear{
+    display:inline-flex;align-items:center;justify-content:center;
+    width:22px;height:22px;flex:0 0 22px;margin:1px;
+    border:1px solid #d7dce3;border-radius:50%;background:#fff;
+    font-size:13px;line-height:1;color:#8a94a6;cursor:pointer;user-select:none;
+    transition:border-color .15s,color .15s,background .15s;
+}
+.awz-allxls-map-item__gear:hover{border-color:#2f9cf6;color:#2f9cf6;}
+.awz-allxls-map-item__gear--active{border-color:#2f9cf6;color:#2f9cf6;background:#eaf5fe;}
+/* компактная сводка настроек под селектом сопоставления */
+/* иконки справа от селекта — без переноса на новую строку */
+.awz-allxls-map-item{flex-wrap:nowrap;}
+.awz-allxls-map-item .select2-container{width:170px !important;max-width:170px !important;}
+.awz-allxls-map-item__info{
+    margin-top:2px;
+    font-size:11px;
+    line-height:1.3;
+    color:#8a94a6;
+    text-overflow:ellipsis;
+    display:inline-block;
+    max-width:58px;text-align:center;
+}
+.awz-allxls-map-item__info .awz-allxls-map-item__icon {margin-right: 0!important;}
+.awz-allxls-map-item__info .awz-allxls-map-item__icon:last-child {display:inline-block;width:58px;}
+/* иконка удаления сопоставления */
+.awz-allxls-map-item__del{
+    display:inline-flex;align-items:center;justify-content:center;
+    width:22px;height:22px;margin:1px;
+    border:1px solid #d7dce3;border-radius:50%;background:#fff;
+    font-size:14px;line-height:1;color:#d14;cursor:pointer;user-select:none;
+    transition:border-color .15s,color .15s,background .15s;
+}
+.awz-allxls-map-item__del:hover{border-color:#d14;color:#d14;background:#fdecec;}
+/* «+» добавления нового сопоставления */
+.awz-allxls-map-add{
+    display:inline-flex;align-items:center;justify-content:center;
+    width:22px;height:22px;margin:1px;
+    border:1px solid #d7dce3;border-radius:50%;background:#fff;
+    font-size:14px;line-height:1;color:#8a94a6;cursor:pointer;user-select:none;
+    transition:border-color .15s,color .15s,background .15s;
+}
+.awz-allxls-map-add:hover{border-color:#2f9cf6;color:#2f9cf6;background:#eaf5fe;}
+.awz-allxls-map-item__settings{
+    margin:1px;padding:8px 10px;border:1px solid #e5e8ec;border-radius:8px;
+    background:#fafbfc;display:flex;flex-direction:column;gap:6px;
+}
+.awz-allxls-map-item__option{
+    display:flex;align-items:center;gap:6px;font-size:12px;color:#2a3346;cursor:pointer;margin:0;
+}
+.awz-allxls-map-item__settings select{
+    border:1px solid #d7dce3;border-radius:6px;padding:3px 6px;font-size:12px;background:#fff;
+}
+/* ограничение ширины выпадающего списка select2 */
+.awz-allxls-grid .select2-container{width:260px !important;max-width:100%;}
+.awz-allxls-grid .select2-dropdown{max-width:340px;}
+/* всплывающее окно настроек сопоставления */
+.awz-allxls-mapdlg{padding:6px 2px;}
+.awz-allxls-mapdlg__row{display:flex;align-items:center;gap:10px;margin-bottom:10px;}
+.awz-allxls-mapdlg__label{min-width:220px;font-size:13px;color:#2a3346;}
+.awz-allxls-mapdlg__toggles{display:inline-flex;gap:6px;flex-wrap:wrap;}
+.awz-allxls-mapdlg__toggle{
+    padding:3px 5px;border:1px solid #d7dce3;border-radius:3px;background:#fff;
+    font-size:12px;color:#535c69;cursor:pointer;user-select:none;
+}
+.awz-allxls-mapdlg__toggle:hover{border-color:#2f9cf6;color:#1a7fd4;}
+.awz-allxls-mapdlg__toggle--active{
+    background:#2f9cf6;border-color:#2f9cf6;color:#fff;
+}
+.awz-allxls-mapdlg__toggle--active:hover{color:#fff;}
+.awz-allxls-mapdlg__section{
+    margin:14px 0 10px;padding:8px 10px;background:#eef1f5;border-radius:6px;
+    font-size:13px;font-weight:600;color:#1d2433;text-align:center;
+}
+.awz-allxls-mapdlg__rule{
+    display:flex;align-items:center;gap:6px;flex-wrap:wrap;
+    margin-bottom:8px;font-size:12px;color:#2a3346;
+}
+.awz-allxls-mapdlg__rule input[type="text"]{
+    border:1px solid #d7dce3;border-radius:6px;padding:4px 8px;font-size:12px;width:140px;
+}
+.awz-allxls-mapdlg__rule select{
+    border:1px solid #d7dce3;border-radius:6px;padding:4px 6px;font-size:12px;background:#fff;
+}
+.awz-allxls-mapdlg__rule-del,.awz-allxls-mapdlg__add{
+    color:#2f9cf6;font-size:12px;text-decoration:underline;cursor:pointer;
+}
+.awz-allxls-mapdlg__rule-del:hover,.awz-allxls-mapdlg__add:hover{color:#1a7fd4;}
+.awz-allxls-mapdlg__add{display:inline-block;margin-top:4px;}
+.awz-allxls-page{max-width:100%;overflow-x: auto;}
+.awz-allxls-card{
+    background:#fff;border:1px solid #e5e8ec;border-radius:12px;
+    box-shadow:0 1px 2px rgba(16,24,40,.05);margin:0 0 16px;overflow:hidden;
+}
+.awz-allxls-card__head{padding:16px 20px 12px;border-bottom:1px solid #eef0f3;}
+.awz-allxls-card__title{font-size:15px;font-weight:600;color:#1d2433;margin:0;}
+.awz-allxls-card__sub{font-size:12px;color:#8a94a6;margin:3px 0 0;}
+.awz-allxls-row{
+    display:flex;align-items:flex-start;gap:16px;
+    padding:13px 20px;border-bottom:1px solid #f2f4f7;
+}
+.awz-allxls-row:last-child{border-bottom:none;}
+.awz-allxls-row__label{width:250px;flex:0 0 250px;font-size:13px;font-weight:500;color:#2a3346;padding-top:3px;}
+.awz-allxls-row__ctrl{flex:1 1 auto;min-width:0;}
+.awz-allxls-row__desc{font-size:12px;line-height:1.45;color:#8a94a6;margin-top:5px;font-weight:normal;}
+.awz-allxls-input,.awz-allxls-select,.awz-allxls-textarea{
+    border:1px solid #d7dce3;border-radius:8px;padding:7px 10px;font-size:13px;
+    background:#fff;color:#1d2433;transition:border-color .15s, box-shadow .15s;max-width:100%;
+    box-sizing:border-box;font-family:inherit;
+}
+.awz-allxls-textarea{width:100%;max-width:460px;min-height:80px;resize:vertical;}
+.awz-allxls-input:focus,.awz-allxls-select:focus,.awz-allxls-textarea:focus{
+    outline:none;border-color:#2f9cf6;box-shadow:0 0 0 3px rgba(47,156,246,.15);
+}
+.awz-allxls-input[disabled],.awz-allxls-select[disabled],.awz-allxls-textarea[disabled]{
+    background:#f5f6f8;color:#9aa3b2;
+}
+.awz-allxls-input--w{width:100%;max-width:460px;}
+/* колонки-примеры значений (этап 3) */
+.awz-allxls-grid__samples{display:flex;flex-direction:column;gap:8px;}
+.awz-allxls-grid__sample-block{padding:4px 6px;border:1px dashed #d7dce3;border-radius:6px;}
+.awz-allxls-grid__sample-block > .awz-allxls-grid__sample{margin:0;}
+.awz-allxls-grid__sample-toggle{
+    display:inline-flex;align-items:center;justify-content:center;
+    width:16px;height:16px;margin-left:6px;border:1px solid #d7dce3;border-radius:4px;
+    font-size:12px;line-height:1;color:#2a3346;background:#fff;cursor:pointer;vertical-align:middle;
+}
+.awz-allxls-grid__sample-toggle:hover{border-color:#2f9cf6;color:#2f9cf6;}
+.awz-allxls-grid__sample-toggle--disabled{opacity:.4;cursor:default;}
+.awz-allxls-grid__sample-toggle--disabled:hover{border-color:#d7dce3;color:#2a3346;}
+/* переключатель */
+.awz-switch{position:relative;display:inline-block;width:40px;height:22px;vertical-align:middle;}
+.awz-switch input{position:absolute;opacity:0;width:100%;height:100%;margin:0;cursor:pointer;z-index:1;}
+.awz-switch input:disabled{cursor:default;}
+.awz-switch__slider{position:absolute;inset:0;background:#cfd6de;border-radius:22px;transition:.18s;}
+.awz-switch__slider:before{
+    content:"";position:absolute;height:16px;width:16px;left:3px;top:3px;
+    background:#fff;border-radius:50%;transition:.18s;box-shadow:0 1px 2px rgba(16,24,40,.3);
+}
+.awz-switch input:checked + .awz-switch__slider{background:#2f9cf6;}
+.awz-switch input:checked + .awz-switch__slider:before{transform:translateX(18px);}
+.awz-switch input:disabled + .awz-switch__slider{opacity:.45;}
+.awz-switch input:focus-visible + .awz-switch__slider{box-shadow:0 0 0 3px rgba(47,156,246,.3);}
+/* кнопки */
+.awz-allxls-btn{
+    display:inline-flex;align-items:center;gap:6px;border-radius:8px;padding:9px 18px;
+    font-size:13px;font-weight:600;text-decoration:none;cursor:pointer;border:1px solid transparent;
+    transition:filter .15s;
+}
+.awz-allxls-btn--primary{background:#2f9cf6;color:#fff;}
+.awz-allxls-btn--primary:hover{filter:brightness(1.06);color:#fff;}
+.awz-allxls-btn--ghost{background:#fff;border-color:#d7dce3;color:#2a3346;}
+.awz-allxls-btn--ghost:hover{border-color:#2f9cf6;color:#2f9cf6;}
+.awz-allxls-btn[disabled]{opacity:.5;cursor:default;}
+.awz-allxls-footer{display:flex;align-items:center;gap:10px;margin:18px 0;}
+/* индикатор шагов */
+.awz-allxls-steps{display:flex;align-items:center;gap:10px;margin:0 0 18px;}
+.awz-allxls-step{display:flex;align-items:center;gap:8px;}
+.awz-allxls-step__circle{
+    display:inline-flex;align-items:center;justify-content:center;
+    width:28px;height:28px;border-radius:50%;flex:0 0 28px;
+    background:#eef1f5;color:#8a94a6;font-size:13px;font-weight:600;
+    border:1px solid #dfe4ea;transition:.15s;
+}
+.awz-allxls-step__label{font-size:13px;color:#8a94a6;font-weight:500;}
+.awz-allxls-step--active .awz-allxls-step__circle{
+    background:#2f9cf6;border-color:#2f9cf6;color:#fff;
+    box-shadow:0 0 0 4px rgba(47,156,246,.15);
+}
+.awz-allxls-step--active .awz-allxls-step__label{color:#1d2433;font-weight:600;}
+.awz-allxls-step--done .awz-allxls-step__circle{
+    background:#e6f5ec;border-color:#b7e2c9;color:#1e9e5a;
+}
+.awz-allxls-step--done .awz-allxls-step__label{color:#2a3346;}
+a.awz-allxls-step--link{text-decoration:none;cursor:pointer;}
+.awz-allxls-step--disabled{opacity:.5;cursor:default;}
+a.awz-allxls-step--link:hover .awz-allxls-step__circle{
+    background:#2f9cf6;border-color:#2f9cf6;color:#fff;
+    box-shadow:0 0 0 4px rgba(47,156,246,.15);
+}
+a.awz-allxls-step--link:hover .awz-allxls-step__label{color:#2f9cf6;}
+.awz-allxls-step__line{flex:1 1 auto;height:2px;background:#e5e8ec;border-radius:2px;min-width:24px;}
+/* таблица настроек колонок (шаг 3) */
+.awz-allxls-grid{border-collapse:collapse;width:100%;font-size:13px;}
+.awz-allxls-grid th,.awz-allxls-grid td{
+    border:1px solid #e5e8ec;padding:8px 10px;text-align:left;vertical-align:top;
+}
+.awz-allxls-grid th{background:#f7f9fb;font-size:12px;font-weight:600;color:#5b6577;}
+.awz-allxls-grid__row--inactive td{background:#fafbfc;color:#9aa3b2;}
+.awz-allxls-grid__letter{font-weight:700;font-size:14px;color:#1d2433;}
+.awz-allxls-grid__row--inactive .awz-allxls-grid__letter{color:#9aa3b2;}
+.awz-allxls-grid__header-info{font-size:11px;color:#8a94a6;margin-top:3px;font-weight:normal;}
+.awz-allxls-grid__alias{font-family:Consolas,monospace;font-size:12px;color:#2a3346;}
+.awz-allxls-grid__sample{
+    color:#5b6577;white-space:pre-line;max-width:420px;
+    display:-webkit-box;-webkit-line-clamp:3;-webkit-box-orient:vertical;overflow:hidden;
+}
+.awz-allxls-grid__sample--expanded{
+    display:block;-webkit-line-clamp:unset;overflow:visible;white-space:pre-wrap;
+}
+/* ползающая муха */
+.awz-allxls-fly{
+    position:fixed;left:0;top:0;z-index:9999;font-size:22px;line-height:1;
+    cursor:pointer;user-select:none;pointer-events:auto;
+    transition:transform .04s linear;filter:drop-shadow(0 1px 1px rgba(0,0,0,.25));
+}
+.awz-allxls-fly__close{
+    position:absolute;top:-8px;right:-8px;width:14px;height:14px;
+    background:#1d2433;color:#fff;border-radius:50%;font-size:10px;line-height:14px;
+    text-align:center;cursor:pointer;display:none;
+}
+.awz-allxls-fly:hover .awz-allxls-fly__close{display:block;}
+.awz-allxls-fly--paused{transition:none;}
+.awz-allxls-fly__hint{
+    position:fixed;z-index:9999;max-width:240px;
+    background:#1d2433;color:#fff;font-size:12px;line-height:1.45;
+    padding:8px 12px;border-radius:8px;box-shadow:0 4px 12px rgba(16,24,40,.25);
+    pointer-events:none;
+}
+.awz-allxls-fly-toggle{
+    position:fixed;right:8px;bottom:8px;z-index:9999;font-size:16px;line-height:1;
+    opacity:.4;cursor:pointer;user-select:none;
+}
+.awz-allxls-fly-toggle:hover{opacity:1;}
+table th[data-sample-add-th="1"]{max-width:14px;text-align: center;}
+table th[data-sample-add-th="1"] > span {margin-left:0!important;}
+table[data-inactive-hidden="N"] + button + select {display:none;}
+/* drag handle icon for row reordering */
+.awz-allxls-grid__drag{
+    display:inline-flex;align-items:center;justify-content:center;
+    width:16px;height:16px;margin-bottom:4px;
+    color:#b3bcc9;font-size:13px;line-height:1;cursor:grab;user-select:none;
+    transition:color .15s;
+}
+.awz-allxls-grid__drag:hover{color:#2f9cf6;}
+.awz-allxls-grid__drag:active{cursor:grabbing;}
+.awz-allxls-grid__row--dragging{opacity:.55;background:#eaf5fe !important;}
+.awz-allxls-grid tr th:nth-child(1) {max-width:20px;width:20px;}
+.awz-allxls-grid tr th:nth-child(2) {max-width:120px;width:120px;}
+.awz-allxls-grid tr th:nth-child(3) {max-width:270px;width:270px;}
+.awz-allxls-grid td * {word-break: break-all;}
+button + .awz-allxls-input {max-width:200px;}
+/* правила обработки: блочная структура строки */
+.awz-allxls-mapdlg__rules{display:flex;flex-direction:column;gap:8px;margin-bottom:8px;}
+.awz-allxls-mapdlg__rule{
+    display:block;flex-wrap:nowrap;border:1px solid #d5dbe5;border-radius:6px;
+    padding:8px 10px;background:#fbfcfe;margin-bottom:0;
+}
+.awz-allxls-mapdlg__rule-head{display:flex;align-items:center;gap:8px;margin-bottom:6px;}
+.awz-allxls-mapdlg__rule-head select{flex:1;}
+.awz-allxls-mapdlg__rule-btns{display:flex;gap:4px;margin-left:auto;}
+.awz-allxls-mapdlg__rule-row{display:flex;align-items:center;gap:6px;margin-bottom:4px;flex-wrap:wrap;}
+.awz-allxls-mapdlg__rule-row label{min-width:52px;color:#535c69;font-size:12px;}
+.awz-allxls-mapdlg__rule-row input[type="text"]{flex:1;min-width:110px;width:auto;}
+/* ссылки сортировки правил в дереве условий */
+.awz-allxls-mapdlg__sort{
+    display:inline-block;margin:0 6px 2px 0;font-size:11px;
+    color:#2f9cf6;text-decoration:underline;cursor:pointer;
+}
+.awz-allxls-mapdlg__sort:hover{color:#1a7fd4;}
+
+/* кнопка «...» выбора макроса рядом с полями правил */
+.awz-allxls-mapdlg__macro-btn{
+    display:inline-block;margin:0 0 2px 4px;padding:0 4px;
+    font-size:11px;font-weight:bold;color:#2067b0;
+    text-decoration:none;border-bottom:1px dashed #2067b0;
+    cursor:pointer;vertical-align:middle;
+}
+.awz-allxls-mapdlg__macro-btn:hover{color:#d14;border-bottom-color:#d14;}
+
+.awz-allxls-mapdlg .condition-simple-control {padding: 5px 70px 5px 12px;
+box-shadow: none;
+}
+.awz-allxls-mapdlg .condition-simple-control * {box-shadow: none;}
+.awz-allxls-mapdlg .condition-logic {padding: 0 3px 0 3px;width:37px;left:-3px;
+    height:20px;line-height:19px!important;
+    font-size:10px;
+    bottom:-15px;
+}
+.awz-allxls-mapdlg form > div > .condition-wrapper > div > .condition-wrapper > .condition-logic {bottom:-17px;}
+.awz-allxls-mapdlg .condition-border {padding: 10px 8px 5px 12px;font-size: 12px;}
+.awz-allxls-mapdlg .condition-container {padding: 5px 10px 5px 10px;box-shadow: none;}
+.awz-allxls-mapdlg .condition-container {margin-bottom:15px;}
+.awz-allxls-mapdlg .condition-container .condition-container {margin-bottom:10px;}
+.awz-allxls-mapdlg a.awz-allxls-mapdlg__sort {position: absolute;right: 20px;
+    width: 18px;
+    height: 18px;
+    flex: 0 0 18px;
+    margin: 2px 0 4px 2px;
+    border: 1px solid #d7dce3;
+    border-radius: 50%;
+    background: #fff;
+    font-size: 14px;
+    line-height: 14px!important;
+    text-align: center;
+    text-decoration: none!important;
+    font-weight: bold;
+    border-bottom:none!important;
+}
+.awz-allxls-mapdlg a.awz-allxls-mapdlg__sort-down {position: absolute;right: 45px;}
+.awz-allxls-mapdlg select {max-width:200px;}
+.awz-allxls-mapdlg a.awz-allxls-mapdlg__macro-btn {
+    width: 18px;
+    height: 18px;
+    flex: 0 0 18px;
+    margin: 2px 0 4px 2px;
+    border-radius: 50%;
+    background: #6a707a;
+    color:#fff!important;
+    font-size: 14px;
+    line-height: 14px!important;
+    text-align: center;
+    text-decoration: none!important;
+    font-weight: bold;
+    border-bottom:none!important;
+    border: none;
+    position: relative;
+    top: 3px;
+    padding-left:0;padding-right:0;
+}
+input[value="ruleTransform"] + div + span + span + a + select + span + a + input + a + span + a + input + a + span
+{display:block;height:1px;width:100%;}
+input[value="ruleEntity"] + div + span + span + a + select + span + a + input + a + span
+{display:block;height:1px;width:100%;}
+.awz-allxls-grid__map-select {max-width:160px!important;}
+.awz-allxls-stats-table tr td:first-child {min-width:200px;max-width:200px;width: 200px;}
+#awz_export_add_sheet {margin-bottom:15px;}
+#awz_allxls_profile_export_container {margin-top:15px;}
+input[name="EXPORT_FILE_NAME"] {width: 200px;}
+.awz-allxls-mapdlg .condition-simple-control a {min-width:12px;}
+
+/* awz allxls compact dropdown */
+.awz-allxls-map-item .select2-container--default .select2-results > .select2-results__options,
+.awz-allxls-select2-dropdown .select2-results > .select2-results__options,
+.select2-container .select2-results > .select2-results__options {
+    max-height: 60vh !important;
+    min-height: 30vh !important;
+}
+.awz-allxls-map-item .select2-selection--single {
+    height: 28px !important;
+}
+.awz-allxls-map-item .select2-selection--single .select2-selection__rendered {
+    font-size: 13px !important;
+    line-height: 26px !important;
+    padding: 0 20px 0 8px !important;
+}
+/* список: компактные опции, 11px (дропдаун в body — скоуп по своему классу) */
+.awz-allxls-select2-dropdown .select2-results__option {
+    font-size: 11px !important;
+    line-height: 1.3 !important;
+    padding: 2px 6px !important;
+}
+.awz-allxls-select2-dropdown .select2-results__group {
+    font-size: 10px !important;
+    padding: 2px 6px !important;
+    color: #8a94a6;
+}
+.awz-allxls-select2-dropdown .select2-search--dropdown .select2-search__field {
+    font-size: 11px !important;
+    padding: 2px 4px !important;
+}
