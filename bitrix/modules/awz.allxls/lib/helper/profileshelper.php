@@ -395,7 +395,7 @@ class ProfilesHelper {
                     $ufItems = [];
                     $ufIterator = \CUserTypeEntity::GetList(
                         [],
-                        ['ENTITY_ID' => 'CATALOG_PRODUCT']
+                        ['ENTITY_ID' => 'PRODUCT']
                     );
                     while ($uf = $ufIterator->Fetch()) {
                         if (!$uf['FIELD_NAME']) continue;

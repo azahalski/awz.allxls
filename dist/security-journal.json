@@ -95,7 +95,7 @@
           "status": "accepted_risk",
           "note": "",
           "author": "Andrew Zahalski",
-          "updated_at": "2026-11-10T03:10:42+00:00"
+          "updated_at": "2026-11-10T08:54:42+00:00"
         }
       },
       "events": [
@@ -126,6 +126,14 @@
             "line": "381-382"
           },
           "status": "accepted_risk"
+        },
+        {
+          "run_id": "awz.allxls-1794279848",
+          "event": "partner_disposition_updated",
+          "at": "2026-11-10T08:54:42+00:00",
+          "status": "accepted_risk",
+          "note": "",
+          "author": "Andrew Zahalski"
         }
       ]
     },
@@ -170,7 +178,7 @@
           "status": "accepted_risk",
           "note": "",
           "author": "Andrew Zahalski",
-          "updated_at": "2026-11-10T03:10:42+00:00"
+          "updated_at": "2026-11-10T08:54:42+00:00"
         }
       },
       "events": [
@@ -201,6 +209,14 @@
             "line": "250-251"
           },
           "status": "accepted_risk"
+        },
+        {
+          "run_id": "awz.allxls-1794279848",
+          "event": "partner_disposition_updated",
+          "at": "2026-11-10T08:54:42+00:00",
+          "status": "accepted_risk",
+          "note": "",
+          "author": "Andrew Zahalski"
         }
       ]
     },
@@ -245,7 +261,7 @@
           "status": "accepted_risk",
           "note": "",
           "author": "Andrew Zahalski",
-          "updated_at": "2026-11-10T03:10:42+00:00"
+          "updated_at": "2026-11-10T08:54:42+00:00"
         }
       },
       "events": [
@@ -276,6 +292,14 @@
             "line": "598-599,625-626"
           },
           "status": "accepted_risk"
+        },
+        {
+          "run_id": "awz.allxls-1794279848",
+          "event": "partner_disposition_updated",
+          "at": "2026-11-10T08:54:42+00:00",
+          "status": "accepted_risk",
+          "note": "",
+          "author": "Andrew Zahalski"
         }
       ]
     },
@@ -320,7 +344,7 @@
           "status": "accepted_risk",
           "note": "",
           "author": "Andrew Zahalski",
-          "updated_at": "2026-11-10T03:10:42+00:00"
+          "updated_at": "2026-11-10T08:54:42+00:00"
         }
       },
       "events": [
@@ -351,6 +375,14 @@
             "line": "37"
           },
           "status": "accepted_risk"
+        },
+        {
+          "run_id": "awz.allxls-1794279848",
+          "event": "partner_disposition_updated",
+          "at": "2026-11-10T08:54:42+00:00",
+          "status": "accepted_risk",
+          "note": "",
+          "author": "Andrew Zahalski"
         }
       ]
     },
@@ -395,7 +427,7 @@
           "status": "accepted_risk",
           "note": "",
           "author": "Andrew Zahalski",
-          "updated_at": "2026-11-10T03:10:42+00:00"
+          "updated_at": "2026-11-10T08:54:42+00:00"
         }
       },
       "events": [
@@ -426,6 +458,14 @@
             "line": "53"
           },
           "status": "accepted_risk"
+        },
+        {
+          "run_id": "awz.allxls-1794279848",
+          "event": "partner_disposition_updated",
+          "at": "2026-11-10T08:54:42+00:00",
+          "status": "accepted_risk",
+          "note": "",
+          "author": "Andrew Zahalski"
         }
       ]
     },
@@ -470,7 +510,7 @@
           "status": "accepted_risk",
           "note": "",
           "author": "Andrew Zahalski",
-          "updated_at": "2026-11-10T03:10:42+00:00"
+          "updated_at": "2026-11-10T08:54:42+00:00"
         }
       },
       "events": [
@@ -501,6 +541,14 @@
             "line": "52"
           },
           "status": "accepted_risk"
+        },
+        {
+          "run_id": "awz.allxls-1794279848",
+          "event": "partner_disposition_updated",
+          "at": "2026-11-10T08:54:42+00:00",
+          "status": "accepted_risk",
+          "note": "",
+          "author": "Andrew Zahalski"
         }
       ]
     },
@@ -545,7 +593,7 @@
           "status": "accepted_risk",
           "note": "",
           "author": "Andrew Zahalski",
-          "updated_at": "2026-11-10T03:10:42+00:00"
+          "updated_at": "2026-11-10T08:54:42+00:00"
         }
       },
       "events": [
@@ -576,6 +624,14 @@
             "line": "162"
           },
           "status": "accepted_risk"
+        },
+        {
+          "run_id": "awz.allxls-1794279848",
+          "event": "partner_disposition_updated",
+          "at": "2026-11-10T08:54:42+00:00",
+          "status": "accepted_risk",
+          "note": "",
+          "author": "Andrew Zahalski"
         }
       ]
     }

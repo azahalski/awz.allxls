@@ -35,7 +35,9 @@ REST-контроллер `Awz\Allxls\Api\Profiles` (`bitrix/modules/awz.allxls/
 
 Ответ: `{id: int, nextStepUrl: string}` — `nextStepUrl` ведёт на шаг 2 (`/bitrix/admin/awz_allxls_profiles_edit.php?id=...&step=2`).
 
-Коды ошибок: `NAME_EMPTY` (пустое имя), `NOT_FOUND` (id>0 не найден), ошибки ORM, `EXCEPTION`.
+Коды ошибок: `NAME_EMPTY` (пустое имя), `NOT_FOUND` (id>0 не найден), `CRON_RUNNING` (профиль выполняется cron-процессом), `PROCESS_NOT_DONE` (незавершенная обработка — сначала «Завершить обработку» на шаге 4), ошибки ORM, `EXCEPTION`.
+
+Гварды `CRON_RUNNING`/`PROCESS_NOT_DONE` действуют и для `saveFile`, и для `saveSettings` (при живой cron-блокировке без heartbeat дольше 3 минут блокировка снимается и редактирование разрешается).
 
 ---
 
@@ -56,12 +58,17 @@ REST-контроллер `Awz\Allxls\Api\Profiles` (`bitrix/modules/awz.allxls/
 | `dest_type` | `iblock\|orm` | `iblock` | Приёмник: инфоблок или ORM-сущность |
 | `iblock_id` | int | 0 | ID инфоблока (обязателен при `dest_type=iblock`) |
 | `orm_file` | string | `''` | Путь к PHP-файлу ORM-класса (при `dest_type=orm`; должен существовать, без `..`, расширение `.php`) |
+| `file_ext` | string | `''` | Явный тип файла источника (для ссылок/FTP без расширения): `''` (авто, по расширению пути, `.gz` распаковывается) \| `csv\|xlsx\|xls\|xml\|yml\|json`; сохраняется в `SETTINGS.FILE_EXT` |
+| `max_params` | int | 0 | Макс. количество колонок (параметров) из файла импорта в настройках шага 3 (колонки сверх лимита не показываются и не сохраняются; `0` — без ограничения; `SETTINGS.MAX_PARAMS`; `settingsAction` отсекает COLUMNS листов) |
+| `export_filter` | string | `''` | JSON-фильтр выборки элементов для экспорта (только TYPE=export; валидируется как JSON, сохраняется в `SETTINGS.EXPORT_FILTER`; передается в сервис-источник экспорта) |
 
-Значения сохраняются в `SETTINGS` профиля: `FILE_PATH`, `PROXY`, `CSV_DELIMITER`, `CSV_ENCODING`, `CSV_ENCODING_CUSTOM`, `XML_PATHS`, `FILE_CACHE_LIFETIME`, `DEST_TYPE`, `IBLOCK_ID`, `ORM_FILE`.
+Экспорт: расширение файла выгрузки — `csv|xlsx|json`; формат хранится в `SETTINGS.EXPORT_FILE_EXT` (для экспорта `.json` проверка `XML_PATHS` не применяется — источник здесь сервис-приёмник).
 
-Ответ: `{id, file_path, proxy, csv_delimiter, csv_encoding, csv_encoding_custom, xml_paths, file_cache_lifetime, external (bool — источник-ссылка), dest_type, iblock_id, orm_file, nextStepUrl (step=3)}`.
+Значения сохраняются в `SETTINGS` профиля: `FILE_PATH`, `FILE_EXT`, `PROXY`, `CSV_DELIMITER`, `CSV_ENCODING`, `CSV_ENCODING_CUSTOM`, `XML_PATHS`, `FILE_CACHE_LIFETIME`, `MAX_PARAMS`, `EXPORT_FILTER`, `DEST_TYPE`, `IBLOCK_ID`, `ORM_FILE`.
 
-Коды ошибок: `NOT_FOUND`, `FILE_EMPTY`, `FILE_INVALID` (`..` в пути), `FILE_NOT_EXISTS` (импорт, локальный файл), `FILE_EXPORT_INVALID` (экспорт: не `/upload/awz.allxls/` или не csv/xlsx), `XML_PATHS_EMPTY` (xml/yml без путей), `DEST_IBLOCK_EMPTY`, `DEST_IBLOCK_NOT_FOUND`, `ORM_FILE_INVALID`, `ORM_FILE_NOT_EXISTS`, `EXCEPTION`.
+Ответ: `{id, file_path, proxy, csv_delimiter, csv_encoding, csv_encoding_custom, xml_paths, file_cache_lifetime, max_params, external (bool — источник-ссылка), dest_type, iblock_id, orm_file, nextStepUrl (step=3)}` (`file_cache_lifetime` — `null`, если не передан).
+
+Коды ошибок: `NOT_FOUND`, `CRON_RUNNING`, `PROCESS_NOT_DONE`, `FILE_EMPTY`, `FILE_INVALID` (`..` в пути), `FILE_NOT_EXISTS` (импорт, локальный файл), `FILE_EXPORT_INVALID` (экспорт: не `/upload/awz.allxls/` или не csv/xlsx/json), `XML_PATHS_EMPTY` (xml/yml/json-источник без путей; для JSON допустим один сегмент пути, для XML/YML — минимум два), `EXPORT_FILTER_INVALID` (невалидный JSON-фильтр), `DEST_IBLOCK_EMPTY`, `DEST_IBLOCK_NOT_FOUND`, `ORM_FILE_INVALID`, `ORM_FILE_NOT_EXISTS`, `EXCEPTION`.
 
 ### 2.1. `filecachestatus` — статус кеша внешнего источника
 
@@ -84,9 +91,13 @@ REST-контроллер `Awz\Allxls\Api\Profiles` (`bitrix/modules/awz.allxls/
 | `id` | int | ID профиля |
 | `headerRows` | array | Переопределение строки заголовков на лету: либо по ключам `SHEET1`/`SHEET2`..., либо по индексам листов, либо плоский список |
 
-Ответ: `{id, file_path, sheets: [...]}`. Каждый лист (через `ProfilesHelper::buildSheetData`): имя листа, ключ `SHEETn`, `HEADER_ROW`, заголовки колонок, до 20 строк-сэмплов. Для CSV — один лист (побайтовое чтение), для XLSX — все листы (FastXlsReader), для XML/YML — листы по `XML_PATHS` (`buildXmlSheets`, `HEADER_ROW` всегда 1, первый элемент листа = строка 1).
+Ответ: `{id, file_path, sheets: [...]}`. Каждый лист (через `ProfilesHelper::buildSheetData`): имя листа, ключ `SHEETn`, `HEADER_ROW`, заголовки колонок, до 20 строк-сэмплов. Для CSV — один лист (побайтовое чтение), для XLSX — все листы (FastXlsReader), для XML/YML — листы по `XML_PATHS` (`buildXmlSheets`, `HEADER_ROW` всегда 1, первый элемент листа = строка 1), для JSON — листы по `XML_PATHS` (`buildJsonSheets`, тот же контракт, один сегмент пути). Тип файла берется из `SETTINGS.FILE_EXT` либо по расширению пути.
 
-Внешний источник (ссылка): файл подтягивается в кеш с учётом TTL; если кеша ещё нет — ответ `{id, file_path, file_cache: 'pending', file_cache_status, file_cache_refresh, sheets: []}` (шаг 3 показывает «ожидаем скачивание», опрос — `filecachestatus`).
+Для XML/YML строится дерево категорий (`categories->category`, элементы `<category id/parentId>` сканируются по всему файлу независимо от `XML_PATHS`) — сохраняется в `SETTINGS.CAT_TREE` и возвращается в ответе как `cat_tree`; в каждый лист (кроме листа категорий) добавляется синтетическая колонка `category_path` (путь по дереву, `|` — вложенность, `;` — множественность).
+
+Колонки листов отсекаются по `SETTINGS.MAX_PARAMS` (шаг 2, `limitSheetColumns`): колонки сверх лимита не возвращаются и не сохраняются.
+
+Внешний источник (ссылка): файл подтягивается в кеш с учетом TTL; если кеша еще нет — ответ `{id, file_path, file_cache: 'pending', file_cache_status, file_cache_refresh, sheets: []}` (шаг 3 показывает «ожидаем скачивание», опрос — `filecachestatus`).
 
 Коды ошибок: `NOT_FOUND`, `FILE_EMPTY`, `FILE_NOT_EXISTS`, `XML_PATHS_EMPTY`, `EXCEPTION`.
 
@@ -100,6 +111,7 @@ REST-контроллер `Awz\Allxls\Api\Profiles` (`bitrix/modules/awz.allxls/
 |----------|-----|----------|
 | `id` | int | ID профиля |
 | `sheets` | array | Список листов (порядок = порядок в файле) |
+| `customFields` | array | Кастомные поля: `[{NAME, CODE}]` (пустой CODE — транслит названия); сохраняются в `SETTINGS.CUSTOM_FIELDS` |
 
 Структура элемента `sheets[]`:
 
@@ -154,7 +166,7 @@ REST-контроллер `Awz\Allxls\Api\Profiles` (`bitrix/modules/awz.allxls/
 
 Ответ: `{id, sheets (нормализованные), nextStepUrl (step=4)}`.
 
-Коды ошибок: `NOT_FOUND`, `EXCEPTION`.
+Коды ошибок: `NOT_FOUND`, `CRON_RUNNING`, `PROCESS_NOT_DONE`, `EXCEPTION`.
 
 ---
 
@@ -168,7 +180,7 @@ REST-контроллер `Awz\Allxls\Api\Profiles` (`bitrix/modules/awz.allxls/
 
 Ответ: `{id, iblock_id, groups}`. Список постоянен для профиля, грузится один раз. Группы (`ProfilesHelper::getFieldGroups`):
 
-- **Поля элемента**: `NAME`, `ACTIVE`, `CODE`, `SORT`, `PREVIEW_TEXT`, `DETAIL_TEXT`, `PREVIEW_PICTURE`, `DETAIL_PICTURE`, `IBLOCK_SECTION` (разделы)
+- **Поля элемента**: `NAME`, `ACTIVE`, `CODE`, `SORT`, `PREVIEW_TEXT`, `PREVIEW_TEXT_TYPE`, `DETAIL_TEXT`, `DETAIL_TEXT_TYPE`, `PREVIEW_PICTURE`, `DETAIL_PICTURE`, `IBLOCK_SECTION` (разделы), `IBLOCK_SECTION_PARENT` (родительский раздел), `CATEGORY_PATH` (путь разделов из categoryId XML; резолвится по названиям, `|` — вложенность, `;` — несколько путей)
 - **Свойства**: `PROPERTY_<CODE>` — типы S/N/L/E/G/F (+ checkbox/listbox user-типы); имя = `NAME [CODE]`
 - **Цены** (модуль catalog): `CATALOG_PRICE_<ID>` и `CATALOG_PRICE_<ID>_CURRENCY`
 - **Каталог**: `CATALOG_*` поля товара
@@ -247,7 +259,7 @@ REST-контроллер `Awz\Allxls\Api\Profiles` (`bitrix/modules/awz.allxls/
 
 ### Тип привязки значения (`BIND`)
 
-Показывается только для свойств типов `S|N|L|E|G`. Как интерпретируется значение из файла при резолве:
+Показывается для свойств типов `L`, `E`, `S:directory`, `S:ElementXmlID` и для полей разделов `IBLOCK_SECTION`/`IBLOCK_SECTION_PARENT`. Как интерпретируется значение из файла при резолве:
 
 | Значение | Описание |
 |----------|----------|
@@ -256,6 +268,8 @@ REST-контроллер `Awz\Allxls\Api\Profiles` (`bitrix/modules/awz.allxls/
 | `xml_id` | Только XML_ID |
 | `name` | Только название |
 | `code` | Только символьный код (только для `E`/`G`) |
+
+Для `S:ElementXmlID` значение само является XML_ID элемента (резолв не требуется), для `S:directory` — резолв в XML_ID записи HL-справочника (варианты привязки — по колонкам справочника). Собирается в `PROPERTY_XXX_BIND` через `Pimport::propertyBindFields`; для полей разделов — `IBLOCK_SECTION_BIND` / `IBLOCK_SECTION_PARENT_BIND`.
 
 Кеши enum/связей раздельные для авто-режима и строгих привязок.
 
@@ -279,11 +293,14 @@ REST-контроллер `Awz\Allxls\Api\Profiles` (`bitrix/modules/awz.allxls/
 | Поле | Тип | Формат значения из файла |
 |------|-----|--------------------------|
 | `NAME`, `PREVIEW_TEXT`, `DETAIL_TEXT`, `CODE` и др. | поле элемента | Строка как есть (после правил) |
+| `PREVIEW_TEXT_TYPE`, `DETAIL_TEXT_TYPE` | поле элемента | `text\|html`; при пустом значении тип определяется автоматически по содержимому описания (html-теги → `html`) |
 | `ACTIVE` | поле элемента | `Y`/`N` |
 | `SORT` | поле элемента | Число |
 | `PREVIEW_PICTURE`, `DETAIL_PICTURE` | файловое поле элемента | Путь/URL → `CFile::MakeFileArray` + `EXTERNAL_ID = md5(путь)` (проверка изменения: при повторном импорте файла с тем же путём ядро не перезаливает файл, если EXTERNAL_ID совпадает с текущим); `'false'` → удаление (`['del'=>'Y']`); пустое — файл не трогается |
 | `IBLOCK_SECTION` | разделы | Число → ID раздела; иначе путь по уровням через `SECTION_LEVEL_DELIM` (уровни ищутся по названию); несколько разделов — через `DELIMETER`; первый раздел основной, остальные в `IBLOCK_SECTION_LIST` (мультисекционность через `SetElementSection`); отсутствующие создаются при `SECTION_CREATE=Y` |
-| `PROPERTY_*` тип `S` (+user-типы) | строка | Как есть |
+| `IBLOCK_SECTION_PARENT` | родительский раздел | Резолвится первым и задает базового родителя для раздела(ов) поля `IBLOCK_SECTION`; только родительский задан — он же раздел элемента. Тип привязки — `IBLOCK_SECTION_PARENT_BIND` (авто/id/xml_id/code/name) |
+| `CATEGORY_PATH` | разделы из XML | Путь категорий из дерева (`|` — вложенность, `;` — несколько путей), резолв по названиям в ID разделов; синтетическая колонка `category_path` заполняется при импорте по `categoryId` строки (хеш строки — по сырому `categoryId`) |
+| `PROPERTY_*` тип `S` (+user-типы) | строка | Как есть; `S:HTML` — JSON `{"VALUE","TYPE"}` или строка (TYPE авто по html-тегам); `S:ElementXmlID` — значение как есть (XML_ID элемента); `S:directory` — резолв в XML_ID записи HL-справочника (по `BIND` — ID/колонка справочника) |
 | `PROPERTY_*` тип `N` | число | Нормализация числа |
 | `PROPERTY_*` тип `L` | список | VALUE или XML_ID → ID enum; отсутствующее — автосоздание (`CREATE_ENUM`); `''` / `false`-семантика очистки |
 | `PROPERTY_*` тип `E` | привязка к элементу | ID / XML_ID / CODE / NAME → ID элемента связанного инфоблока (по `BIND`) |
@@ -309,6 +326,7 @@ REST-контроллер `Awz\Allxls\Api\Profiles` (`bitrix/modules/awz.allxls/
 | `transform` | Преобразовать значение из файла: если условия выполнены — к значению применяется `ACTION` |
 | `skip` | Пропустить обработку всей строки: если условия выполнены — строка пропускается (маркер `HASH_SKIP_MARK` в дедупе) |
 | `delete` | Удалить элемент: если условия выполнены — собирается фильтр поиска (поля `SEARCH_USE`), найденный элемент удаляется (`deleteRowByRule`); оба хеша строки сохраняются с маркером `HASH_SKIP_MARK`. Статистика «Удалено по правилу» / «Ошибки удаления по правилу» |
+| `unset` | Не обрабатывать значение: если условия выполнены — поле исключается из загрузки (`buildItem` не пишет его в элемент), строка обрабатывается штатно; ACTION не используется |
 | `entity` | Преобразовать существующее значение элемента |
 
 Структура правила:
@@ -382,6 +400,7 @@ REST-контроллер `Awz\Allxls\Api\Profiles` (`bitrix/modules/awz.allxls/
 | `#VALUE#` | Начальное значение колонки-источника (до правил) |
 | `#VALUE_PROCESSED#` | Текущее обработанное значение цепочки правил |
 | `#ENTITY#` | Значение элемента |
+| `#ENTITY_<ПОЛЕ>#` | Значение поля найденного при поиске элемента (данные в `options.entity_data`, выставляется после поиска; свойства поддерживают и формат `PROPERTY_XXX_VALUE`; в полной сборке — пусто; служебные поля `IBLOCK_SECTION_PARENT`/`CATEGORY_PATH` в макросы не включаются) |
 | `#COL_<KEY>#` | Начальное (сырое из файла) значение колонки `col_N` → `#COL_COL_1#`-стиль ключа (буквы/цифры ключа в верхнем регистре) |
 | `#COL_PROCESSED_<KEY>#` | Преобразованное значение колонки (лениво, с кешем на строку) |
 | `#ALIAS#` | Алиас колонки |
@@ -547,7 +566,7 @@ ACTION_VALUE = '#COL_PROCESSED_COL2#_#COL_COL3#'
 
 **Завершение** — `awz:allxls.api.pimport.finish` (параметр `id`): принудительно завершает прерванный импорт — помечает `PROCESS.DONE='Y'`, сбрасывает курсор (`SHEET=''`, `ROW=0`), сохраняет статистику в `STATS_VIEW`, удаляет рабочую копию файла. Ответ: `{finished: true}`. Ошибки: `NOT_FOUND`, `CRON_ALIVE_WAIT` (импорт выполняется живым cron-процессом — «подождите 3 минуты»; при мёртвой блокировке блокировка снимается и импорт завершается).
 
-Экспорт: аналогично `awz:allxls.api.pexport.{settings,saveSettings,colsettings,export,finish}`; колонки экспорта `{NAME, FIELD, ACTIVE, TRIM, CASE, DELIMETER, RULES}`; файл результата `/upload/awz.allxls/export/profile_<id>.xlsx|.csv`, `finish` возвращает `file_url`.
+Экспорт: аналогично `awz:allxls.api.pexport.{settings,saveSettings,colsettings,export,finish}`; колонки экспорта `{NAME, FIELD, ACTIVE, TRIM, CASE, DELIMETER, RULES}` (RULES — только transform/skip, движок импорта `MapRules`); файл результата `/upload/awz.allxls/export/profile_<id>.xlsx|.csv|.json` (JSON — потоковая дозапись, шаблон `SETTINGS.EXPORT_JSON_TEMPLATE`, фильтр `SETTINGS.EXPORT_FILTER`), выгрузка идет во временный файл `/upload/tmp/awz.allxls/export/` и копируется по финальному пути при `done`; `finish` возвращает `file_url`. `saveParams` сохраняет `EXPORT_HIT_TIME_LIMIT`/`EXPORT_MAX_EXECUTION_TIME`/`EXPORT_LOG_ERRORS` + `EXPORT_REQUEST_DELAY` (пауза между запросами, сек, применяется JS-ом) + `EXPORT_STEP_BY_STEP` (экспорт по одному элементу, ответ содержит `debug`); JS — `profiles_edit_step4_export.js`.
 
 ### 11.1. Веб-хук `awz.bxorm`: методы `awzairun.*`
 
@@ -578,6 +597,28 @@ POST https://<домен>/bitrix/services/main/ajax.php?action=awz:bxorm.api.hoo
 3. awzairun.import       {id, hitTimeLimit: 20}          → повторять до done: true
 4. (при обрыве цикла) awzairun.finish {id}               → пометить импорт завершённым
 ```
+
+### 11.2. Cron-запуск: `cronsave` / `cronstatus`
+
+**Экшены:** `awz:allxls.api.profiles.cronsave` / `.cronstatus`.
+
+`cronsave` — настройки расписания (шаг 4, блок «Расписание запуска (cron)»):
+
+| Параметр | Тип/умолч. | Описание |
+|----------|-----------|----------|
+| `id` | int | ID профиля |
+| `active` | `Y\|N`, `N` | Включение запуска по расписанию |
+| `schedule` | string, `''` | crontab-выражение (5 полей, алиасы `@hourly`/`@daily`/...) либо пусто — используется сохраненное; валидация на сервере (`CRON_SCHEDULE_INVALID`/`CRON_SCHEDULE_EMPTY`) |
+| `stepTime` | int, 0 | Время одного шага запуска, сек (0 — обрабатывать до завершения; макс. 3600) |
+| `pause` | int, 0 | Пауза после завершения прогона, **мин** (0 — выключено; приведение: минимум 5 мин, максимум 7 суток) |
+| `mode` | string, `''` | Способ запуска: `cron` (общее задание `run.php all`) \| `cron_own` (отдельное `run.php <id>`) \| `agent` (агент Bitrix); хранится в `SETTINGS.CRON_MODE` |
+| `release` | `Y\|N`, `N` | `Y` — принудительно снять блокировку (настройки не трогаются) |
+| `timeFrom` / `timeTo` | `HH:MM`, `''` | Окно времени запуска (пусто — без ограничения; хранится в `SETTINGS.CRON_TIME_FROM/TO`) |
+| `nextRun` | `Y-m-dTH:i`, `''` | Разовое ручное время следующего запуска (переопределяет расчет по расписанию, не меняя паузу/расписание) |
+
+Ответ = данные `cronstatus`. При `release!=Y` и живой cron-блокировке сохранение запрещено (`CRON_RUNNING`).
+
+`cronstatus` (параметр `id`) — статус: `{id, active, schedule, schedule_valid, step_time, pause, mode, agent (статус агента: exists/active/duplicates/next_exec/overdue), running, start_time, next_run, last_end, last_err, stats_view («живая» статистика cron-прогона из PROCESS.STATS_VIEW), source (cron|''), done, run_started, command (рекомендуемая команда CLI)}`. JS шага 4 опрашивает его раз в 20 сек при `running` и показывает баннер «Обработка запущена на crontab» + прогресс/статистику.
 
 
 ---

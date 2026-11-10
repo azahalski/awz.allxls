@@ -463,24 +463,9 @@ class iblock implements Base
                     }
                 }
                 if ($diffFields) {
-                    // UF-поля товара (например UF_PRODUCT_GROUP) обновляются
-                    // только через D7-модель: CCatalogProduct::Update их не меняет
-                    $stdFields = array_filter($diffFields, function ($k) {
-                        return !preg_match('/^UF_/', $k);
-                    }, ARRAY_FILTER_USE_KEY);
-                    $ufFields = array_diff_key($diffFields, $stdFields);
-                    if ($stdFields) {
-                        \CCatalogProduct::Update($elementId, $stdFields);
-                    }
-                    foreach ($ufFields as $ufKey => $ufVal) {
-                        $res = \Bitrix\Catalog\Model\Product::update($elementId, [$ufKey => $ufVal]);
-                        if (!$res->isSuccess()) {
-                            Logger::warning('Ошибка сохранения UF-поля товара', [
-                                'element_id' => $elementId, 'field' => $ufKey,
-                                'error' => $res->getErrorMessages(),
-                            ]);
-                        }
-                    }
+                    // UF-поля товара (например UF_PRODUCT_GROUP) передаются
+                    // вместе со стандартными: CCatalogProduct::Update их сохраняет
+                    \CCatalogProduct::Update($elementId, $diffFields);
                 }
             }
         } catch (\Throwable $e) {
