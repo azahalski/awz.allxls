@@ -1,6 +1,6 @@
 {
   "success": true,
-  "requestId": "awz.allxls-1794279848",
+  "requestId": "awz.allxls-1794315824",
   "data": {
     "vulnerabilities": [
       {
@@ -8,9 +8,9 @@
         "line": "381-382",
         "type": "Regex Injection",
         "severity": "medium",
-        "description": "Подтверждена регулярная инъекция в операторе regex/not_regex функции checkOperator(). Метод MapRules::checkOperator() (line 381-382) принимает $value из настроек профиля и передаёт его напрямую в preg_match($value, $subject) без какой-либо валидации или экранирования разделителя. Значение $value берётся из SETTINGS.RULES сохранения профиля импорта — это пользовательские правила сопоставления, задаваемые через UI мастера импорта любого авторизованным оператором сайта. Subject — данные из импортируемого файла (CSV/XLSX/XML/JSON), которые обычно неконтролируемы если файл загружен с внешнего источника. Два возможных вектора атаки: 1) ReDoS — атакующий задаёт правило с паттерном, содержащим катастрофический бэктрекинг (например «(.+)» + множественные вложенные группы), что приводит к DoS при обработке каждого элемента строки файла. Паттерн проверяется на каждом элементе импорта и выполняется синхронно в процессе обработки. 2) Логический обход фильтрации — паттерн с .* позволяет пропустить собственные проверки модуля (skip/delete/transform правила перестают работать). Severity = medium: требует аутентификации оператора, но эксплуатируется при обычной работе с модулем.",
-        "recommendation": "Валидировать длину и сложность regex-паттерна перед применением. Ограничить максимальную длину VALUE в правиле (например 200 символов). Установить плагин pcre.backtrack_limit на минимальное значение. Не использовать @ suppression — это скрывает ошибки парсинга, которые сами по себе сигнал проблемы. Использовать preg_quote() для value если он сравнивается как литерал.",
-        "fix": "Before:\n            case 'regex':       return $value !== '' && (bool)@preg_match($value, $subject);\n            case 'not_regex':   return $value === '' || !(bool)@preg_match($value, $subject);\n\nAfter:\n            case 'regex': {\n                if ($value === '') return false;\n                // Защита от ReDoS: ограничиваем backtrack limit\n                $prevLimit = ini_get('pcre.backtrack_limit');\n                if ((int)$prevLimit > 1000000) {\n                    ini_set('pcre.backtrack_limit', '1000000');\n                }\n                $result = @preg_match($value, $subject);\n                if ((int)$prevLimit > 1000000) {\n                    ini_set('pcre.backtrack_limit', $prevLimit);\n                }\n                return $result !== false && (bool)$result;\n            }\n            case 'not_regex': {\n                if ($value === '') return true;\n                $prevLimit = ini_get('pcre.backtrack_limit');\n                if ((int)$prevLimit > 1000000) {\n                    ini_set('pcre.backtrack_limit', '1000000');\n                }\n                $result = @preg_match($value, $subject);\n                if ((int)$prevLimit > 1000000) {\n                    ini_set('pcre.backtrack_limit', $prevLimit);\n                }\n                return $result === false || !(bool)$result;\n            }",
+        "description": "Подтверждена регулярная инъекция в операторе regex/not_regex функции checkOperator(). Метод MapRules::checkOperator() принимает $value из настроек правил сопоставления колонок профиля импорта и передаёт его напрямую в preg_match($value, $subject) без валидации разделителя или экранирования. Значение $value задаётся через UI мастера импорта авторизованным оператором модуля. Subject — данные из импортируемого файла (CSV/XLSX/XML), которые обычно неконтролируемы при загрузке с внешнего источника. Возможные векторы: ReDoS (катастрофический бэктрекинг паттерна на каждом элементе импорта) и логический обход собственных проверок модуля паттерном с .*.",
+        "recommendation": "Валидировать длину и сложность regex-паттерна перед применением. Ограничить максимальную длину VALUE в правиле. Установить ограничение pcre.backtrack_limit. Использовать preg_quote() для value если он сравнивается как литерал.",
+        "fix": "Before:\n            case 'regex':       return $value !== '' && (bool)@preg_match($value, $subject);\n            case 'not_regex':   return $value === '' || !(bool)@preg_match($value, $subject);\n\nAfter:\n            case 'regex': {\n                if ($value === '') return false;\n                $prevLimit = ini_get('pcre.backtrack_limit');\n                if ((int)$prevLimit > 1000000) ini_set('pcre.backtrack_limit', '1000000');\n                $result = @preg_match($value, $subject);\n                if ((int)$prevLimit > 1000000) ini_set('pcre.backtrack_limit', $prevLimit);\n                return $result !== false && (bool)$result;\n            }\n            case 'not_regex': {\n                if ($value === '') return true;\n                $prevLimit = ini_get('pcre.backtrack_limit');\n                if ((int)$prevLimit > 1000000) ini_set('pcre.backtrack_limit', '1000000');\n                $result = @preg_match($value, $subject);\n                if ((int)$prevLimit > 1000000) ini_set('pcre.backtrack_limit', $prevLimit);\n                return $result === false || !(bool)$result;\n            }",
         "reviewed": {
           "oldSeverity": "medium",
           "newSeverity": "medium",
@@ -27,7 +27,88 @@
           "status": "accepted_risk",
           "note": "",
           "author": "Andrew Zahalski",
-          "updated_at": "2026-11-10T08:54:42+00:00"
+          "updated_at": "2026-11-10T11:27:27+00:00"
+        }
+      },
+      {
+        "file": "lib/api/map.php",
+        "line": "36-38",
+        "type": "CSRF",
+        "severity": "medium",
+        "description": "Action forward в контроллере Api\\Map имеет пустой массив prefilters ('prefilters' => []), что убирает все дефолтные фильтры (Authentication, Csrf). Контроллер Api\\Map отвечает за диалог настройки сопоставления колонок; empty preffilters означает отсутствие CSRF-защиты на любое state-changing действие, которое может быть добавлено в этот action в будущем. Текущий read-only action settings не эксплуатируется напрямую через forward, но архитектурный паттерн опасен.",
+        "recommendation": "Добавить стандартные prefilters: ActionFilter\\Authentication() и ActionFilter\\CloseSession(), даже для read-only actions.",
+        "fix": "Before:\n            'forward'=> [\n                'prefilters' => []\n            ]\n\nAfter:\n            'forward'=> [\n                'prefilters' => [\n                    new ActionFilter\\Authentication(),\n                    new ActionFilter\\CloseSession(),\n                ]\n            ]",
+        "reviewed": {
+          "oldSeverity": "medium",
+          "newSeverity": "medium",
+          "changed": false,
+          "category": "csrf-state-change",
+          "versionScope": "current",
+          "version": "current",
+          "currentVersionRelevance": "present-in-current-scan",
+          "action": "add-sessid-and-owner-checks",
+          "confidence": "medium",
+          "rationale": "Kept as medium because the finding describes state change without check_bitrix_sessid; raise only if cross-user deletion or higher-impact state change is confirmed."
+        },
+        "partner_disposition": {
+          "status": "accepted_risk",
+          "note": "",
+          "author": "Andrew Zahalski",
+          "updated_at": "2026-11-10T11:27:27+00:00"
+        }
+      },
+      {
+        "file": "lib/api/profiles.php",
+        "line": "52-54",
+        "type": "CSRF",
+        "severity": "medium",
+        "description": "Action forward в контроллере Api\\Profiles имеет пустой массив prefilters ('prefilters' => []). Этот же контроллер обрабатывает CRUD операций профилей (save, saveSettings, cronsave и др.). Forward action используется для перенаправления и сейчас не защищён CSRF. Пустые preffilters оставляют action без какой-либо защиты.",
+        "recommendation": "Добавить стандартные prefilters: ActionFilter\\Authentication() и ActionFilter\\CloseSession().",
+        "fix": "Before:\n            'forward'=> [\n                'prefilters' => []\n            ],\n\nAfter:\n            'forward'=> [\n                'prefilters' => [\n                    new ActionFilter\\Authentication(),\n                    new ActionFilter\\CloseSession(),\n                ]\n            ],",
+        "reviewed": {
+          "oldSeverity": "medium",
+          "newSeverity": "medium",
+          "changed": false,
+          "category": "csrf-state-change",
+          "versionScope": "current",
+          "version": "current",
+          "currentVersionRelevance": "present-in-current-scan",
+          "action": "add-sessid-and-owner-checks",
+          "confidence": "medium",
+          "rationale": "Kept as medium because the finding describes state change without check_bitrix_sessid; raise only if cross-user deletion or higher-impact state change is confirmed."
+        },
+        "partner_disposition": {
+          "status": "accepted_risk",
+          "note": "",
+          "author": "Andrew Zahalski",
+          "updated_at": "2026-11-10T11:27:27+00:00"
+        }
+      },
+      {
+        "file": "lib/api/tech.php",
+        "line": "51-53",
+        "type": "CSRF",
+        "severity": "medium",
+        "description": "Action forward в контроллере Api\\Tech имеет пустой массив prefilters ('prefilters' => []). Контроллер Tech отвечает за загрузку файлов и получение списка инфоблоков. Empty preffilters оставляют action без любой защиты Authentication/Csrf.",
+        "recommendation": "Добавить стандартные prefilters: ActionFilter\\Authentication() и ActionFilter\\CloseSession().",
+        "fix": "Before:\n            'forward'=> [\n                'prefilters' => []\n            ]\n\nAfter:\n            'forward'=> [\n                'prefilters' => [\n                    new ActionFilter\\Authentication(),\n                    new ActionFilter\\CloseSession(),\n                ]\n            ]",
+        "reviewed": {
+          "oldSeverity": "medium",
+          "newSeverity": "medium",
+          "changed": false,
+          "category": "csrf-state-change",
+          "versionScope": "current",
+          "version": "current",
+          "currentVersionRelevance": "present-in-current-scan",
+          "action": "add-sessid-and-owner-checks",
+          "confidence": "medium",
+          "rationale": "Kept as medium because the finding describes state change without check_bitrix_sessid; raise only if cross-user deletion or higher-impact state change is confirmed."
+        },
+        "partner_disposition": {
+          "status": "accepted_risk",
+          "note": "",
+          "author": "Andrew Zahalski",
+          "updated_at": "2026-11-10T11:27:27+00:00"
         }
       },
       {
@@ -35,9 +116,9 @@
         "line": "250-251",
         "type": "Information Disclosure",
         "severity": "low",
-        "description": "Отключена проверка SSL/TLS сертификата в функции downloadUrl(). При скачивании файла по внешней ссылке (action awz:allxls.api.tech.upload, параметр url) CURLOPT_SSL_VERIFYPEER установлен в false и CURLOPT_SSL_VERIFYHOST в 0. Это делает все HTTPS-запросы уязвимыми к man-in-the-middle атакам: злоумышленник с доступом к сети может подменить сертификат сервера и перехватить содержимое скачиваемого файла. Функция вызывается из uploadAction (line 98) и не возвращает ответ атакующему — HTTP-код читается через curl_getinfo, поэтому это не SSRF. Однако если скачиваемый файл содержит вредоносный контент (например, CSV с командами импорта), MitM-злоумышленник может подменить его до записи на диск. Требует аутентификации для вызова API.",
-        "recommendation": "Убрать CURLOPT_SSL_VERIFYPEER => false и CURLOPT_SSL_VERIFYHOST => 0. Доверять системному хранилищу сертификатов. Если нужна работа за корпоративным прокси с самоподписанным сертификатом — добавить опцию CURLOPT_CAINFO с путём к конкретному CA-сертификату.",
-        "fix": "Before:\n        curl_setopt_array($ch, [\n            CURLOPT_FILE => $out,\n            CURLOPT_FOLLOWLOCATION => true,\n            CURLOPT_MAXREDIRS => 5,\n            CURLOPT_TIMEOUT => 300,\n            CURLOPT_CONNECTTIMEOUT => 15,\n            CURLOPT_SSL_VERIFYPEER => false,\n            CURLOPT_SSL_VERIFYHOST => 0,\n            CURLOPT_USERAGENT => 'awz.allxls',\n        ]);\n\nAfter:\n        curl_setopt_array($ch, [\n            CURLOPT_FILE => $out,\n            CURLOPT_FOLLOWLOCATION => true,\n            CURLOPT_MAXREDIRS => 5,\n            CURLOPT_TIMEOUT => 300,\n            CURLOPT_CONNECTTIMEOUT => 15,\n            CURLOPT_SSL_VERIFYPEER => true,\n            CURLOPT_SSL_VERIFYHOST => 2,\n            CURLOPT_USERAGENT => 'awz.allxls',\n        ]);",
+        "description": "Отключена проверка SSL/TLS сертификата в функции downloadUrl(). При скачивании файла по внешней ссылке (action awz:allxls.api.tech.upload, параметр url) CURLOPT_SSL_VERIFYPEER установлен в false и CURLOPT_SSL_VERIFYHOST в 0. Это делает все HTTPS-запросы уязвимыми к man-in-the-middle атакам. Функция вызывается из uploadAction и требует аутентификации для вызова API.",
+        "recommendation": "Убрать отключение верификации SSL/TLS. Доверять системному хранилищу сертификатов. Для корпоративного прокси с самоподписанным сертификатом — добавить CURLOPT_CAINFO.",
+        "fix": "Before:\n            CURLOPT_SSL_VERIFYPEER => false,\n            CURLOPT_SSL_VERIFYHOST => 0,\n\nAfter:\n            CURLOPT_SSL_VERIFYPEER => true,\n            CURLOPT_SSL_VERIFYHOST => 2,",
         "reviewed": {
           "oldSeverity": "low",
           "newSeverity": "low",
@@ -54,7 +135,7 @@
           "status": "accepted_risk",
           "note": "",
           "author": "Andrew Zahalski",
-          "updated_at": "2026-11-10T08:54:42+00:00"
+          "updated_at": "2026-11-10T11:27:27+00:00"
         }
       },
       {
@@ -62,9 +143,9 @@
         "line": "598-599,625-626",
         "type": "Information Disclosure",
         "severity": "low",
-        "description": "Отключена проверка SSL/TLS сертификата в ProfilesHelper::downloadUrl(). Обе точки: FTPS-скачивание (lines 598-599, CURLOPT_SSL_VERIFYPEER => false, CURLOPT_SSL_VERIFYHOST => 0) и обычный HTTP(S)-запрос (lines 625-626, те же параметры). FTPS-уязвимость особенно критична: FTP передаёт логины/пароли в открытом виде, и без проверки сертификата злоумышленник может перехватить учётные данные сервера. HTTP-скачивание уязвимо к MitM-подмене содержимого файла. Вызывается при актуализации кеша внешних источников профилей (refreshProfileSource), то есть автоматически при каждом cron/агент-прогоне импорта. Для обоих случаев severity = low по rubric: канал не несёт финансовых данных, но нужен отдельный MitM-контакт (не дистанционный эксплойт).",
-        "recommendation": "Для FTPS: убрать отключение верификации, доверять системному CA-хранилищу. Добавить опцию CURLOPT_CAINFO если требуется специфический CA. Для HTTP(S): аналогично tech.php.",
-        "fix": "Before (FTPS):\n            if (str_starts_with(strtolower($url), 'ftps://')) {\n                curl_setopt($ch, CURLOPT_PROTOCOLS, CURLPROTO_FTPS);\n                curl_setopt($ch, CURLOPT_SSL_VERIFYPEER, false);\n                curl_setopt($ch, CURLOPT_SSL_VERIFYHOST, 0);\n            }\n\nAfter (FTPS):\n            if (str_starts_with(strtolower($url), 'ftps://')) {\n                curl_setopt($ch, CURLOPT_PROTOCOLS, CURLPROTO_FTPS);\n                curl_setopt($ch, CURLOPT_SSL_VERIFYPEER, true);\n                curl_setopt($ch, CURLOPT_SSL_VERIFYHOST, 2);\n            }",
+        "description": "Отключена проверка SSL/TLS сертификата в ProfilesHelper::downloadUrl(). Две точки: FTPS-скачивание (lines 598-599, CURLOPT_SSL_VERIFYPEER => false) и обычный HTTP(S)-запрос (lines 625-626). FTPS-уязвимость критичнее: FTP передаёт логины/пароли в открытом виде. FTPS без проверки сертификата позволяет перехватить учётные данные сервера. HTTP-скачивание — MitM-подмена содержимого файла. Вызывается при актуализации внешних источников профилей (refreshProfileSource).",
+        "recommendation": "Убрать отключение верификации. Добавить CURLOPT_CAINFO при необходимости работы с самоподписанными сертификатами.",
+        "fix": "Before (FTPS):\n            curl_setopt($ch, CURLOPT_SSL_VERIFYPEER, false);\n            curl_setopt($ch, CURLOPT_SSL_VERIFYHOST, 0);\n\nAfter (FTPS):\n            curl_setopt($ch, CURLOPT_SSL_VERIFYPEER, true);\n            curl_setopt($ch, CURLOPT_SSL_VERIFYHOST, 2);",
         "reviewed": {
           "oldSeverity": "low",
           "newSeverity": "low",
@@ -81,98 +162,17 @@
           "status": "accepted_risk",
           "note": "",
           "author": "Andrew Zahalski",
-          "updated_at": "2026-11-10T08:54:42+00:00"
+          "updated_at": "2026-11-10T11:27:27+00:00"
         }
       },
       {
-        "file": "lib/map.php",
-        "line": "37",
-        "type": "CSRF",
-        "severity": "medium",
-        "description": "Action forward в контроллере Map имеет пустой массив prefilters ('prefilters' => []). Это означает, что запросы к этому action могут поступать без прохождения любых фильтров Битрикс (Authentication, Csrf, CloseSession). Хотя forward — это read-only action (GET-запрос на отображение HTML-диалога настроек сопоставления), пустые preffilters являются слабой практикой и потенциальным вектором CSRF на любое future state-changing действие, добавленное в этот action. Контроллер Api\\Map наследует \\Bitrix\\Main\\Engine\\Controller, где дефолтный prefilters включает Authentication — эта конфигурация явно убирает всё.",
-        "recommendation": "Если forward остаётся read-only, оставить prefilters с Authentication и CloseSession для защиты от будущего расширения. Если intent — полностью открытый endpoint, добавить хотя бы ActionFilter\\Csrf для других методов.",
-        "fix": "Before:\n            'forward'=> [\n                'prefilters' => []\n            ]\n\nAfter:\n            'forward'=> [\n                'prefilters' => [\n                    new ActionFilter\\Authentication(),\n                    new ActionFilter\\CloseSession(),\n                ]\n            ]",
-        "reviewed": {
-          "oldSeverity": "low",
-          "newSeverity": "medium",
-          "changed": true,
-          "category": "csrf-state-change",
-          "versionScope": "current",
-          "version": "current",
-          "currentVersionRelevance": "present-in-current-scan",
-          "action": "add-sessid-and-owner-checks",
-          "confidence": "medium",
-          "rationale": "Kept as medium because the finding describes state change without check_bitrix_sessid; raise only if cross-user deletion or higher-impact state change is confirmed."
-        },
-        "partner_disposition": {
-          "status": "accepted_risk",
-          "note": "",
-          "author": "Andrew Zahalski",
-          "updated_at": "2026-11-10T08:54:42+00:00"
-        }
-      },
-      {
-        "file": "lib/api/profiles.php",
-        "line": "53",
-        "type": "CSRF",
-        "severity": "medium",
-        "description": "Action forward в контроллере Profiles имеет пустой массив prefilters ('prefilters' => []) — аналогично Map.php. Controlллер Api\\Profiles обрабатывает CRUD операций профилей (save, saveSettings и др.). Forward action используется для GET-запросов перенаправления. Пустой preffilters оставляет action без защиты Authentication/Csrf, что опасно при добавлении новых методов в этот action.",
-        "recommendation": "Добавить стандартные prefilters как в Map.php.",
-        "fix": "Before:\n            'forward'=> [\n                'prefilters' => []\n            ],\n\nAfter:\n            'forward'=> [\n                'prefilters' => [\n                    new ActionFilter\\Authentication(),\n                    new ActionFilter\\CloseSession(),\n                ]\n            ],",
-        "reviewed": {
-          "oldSeverity": "low",
-          "newSeverity": "medium",
-          "changed": true,
-          "category": "csrf-state-change",
-          "versionScope": "current",
-          "version": "current",
-          "currentVersionRelevance": "present-in-current-scan",
-          "action": "add-sessid-and-owner-checks",
-          "confidence": "medium",
-          "rationale": "Kept as medium because the finding describes state change without check_bitrix_sessid; raise only if cross-user deletion or higher-impact state change is confirmed."
-        },
-        "partner_disposition": {
-          "status": "accepted_risk",
-          "note": "",
-          "author": "Andrew Zahalski",
-          "updated_at": "2026-11-10T08:54:42+00:00"
-        }
-      },
-      {
-        "file": "lib/api/tech.php",
-        "line": "52",
-        "type": "CSRF",
-        "severity": "medium",
-        "description": "Action forward в контроллере Tech имеет пустой массив prefilters ('prefilters' => []). Контроллер Tech отвечает за загрузку файлов и получение списка инфоблоков. Аналогично другим контроллерам — Empty prefilters оставляют action без любой защиты.",
-        "recommendation": "Добавить стандартные prefilters.",
-        "fix": "Before:\n            'forward'=> [\n                'prefilters' => []\n            ]\n\nAfter:\n            'forward'=> [\n                'prefilters' => [\n                    new ActionFilter\\Authentication(),\n                    new ActionFilter\\CloseSession(),\n                ]\n            ]",
-        "reviewed": {
-          "oldSeverity": "low",
-          "newSeverity": "medium",
-          "changed": true,
-          "category": "csrf-state-change",
-          "versionScope": "current",
-          "version": "current",
-          "currentVersionRelevance": "present-in-current-scan",
-          "action": "add-sessid-and-owner-checks",
-          "confidence": "medium",
-          "rationale": "Kept as medium because the finding describes state change without check_bitrix_sessid; raise only if cross-user deletion or higher-impact state change is confirmed."
-        },
-        "partner_disposition": {
-          "status": "accepted_risk",
-          "note": "",
-          "author": "Andrew Zahalski",
-          "updated_at": "2026-11-10T08:54:42+00:00"
-        }
-      },
-      {
-        "file": "lib/api/profiles.php",
-        "line": "162",
+        "file": "lib/maprules.php",
+        "line": "646-648",
         "type": "RCE",
         "severity": "low",
-        "description": "Мёртвый, но опасный паттерн: eval в MapRules::formula() (lib/maprules.php:648). Функция formula() собирает выражение из ACTION_VALUE правила импорта (тип 'formula'), раскрывает макросы (#VALUE#, #COL_*# и т.д.), затем выполняет eval('return (float)(' . $expr . ');'). Выражение фильтруется через preg_match('/^[0-9\\s\\+\\-\\*\\/\\(\\)\\.]+$/'$expr) — только допустимые символы арифметики. Без фильтрации eval позволял бы произвольный PHP-код; текущая защита ограничивает выполнение математическими операциями. Severity = low, так как regex эффективно предотвращает RCE, но это single-point-of-failure: изменение паттерна в будущем может ослабить защиту.",
-        "recommendation": "Заменить eval на безопасный математический парсер (например, выражения через Tokenizer + AST-evaluation). Если eval необходимо сохранить — добавить дополнительную проверку на отсутствие переменных $$ и функций {}.",
-        "fix": "Before:\n            case 'formula':\n                return self::formula($aval, $value, $entityValue, $rowValues, $options);\n\nAfter:\n            case 'formula':\n                return self::safeFormula($aval, $value, $entityValue, $rowValues, $options);",
+        "description": "Мёртвый, но опасный паттерн: eval в MapRules::formula(). Метод формулы собирает выражение из ACTION_VALUE правила импорта (тип 'formula'), раскрывает макросы (#VALUE#, #COL_*#), затем выполняет eval('return (float)(' . $expr . ');'). Выражение проходит фильтрацию через preg_match('/^[0-9\\s\\+\\-\\*\\/\\(\\)\\.]+$/'$expr) — только арифметические символы допустимы. Без этой защиты eval позволял бы произвольный PHP-код. Действующий фильтр ограничивает выполнение математическими операциями, но это single-point-of-failure: ослабление паттерна откроет полный RCE.",
+        "recommendation": "Заменить eval на безопасный математический парсер выражений (например, токенизатор + AST-evaluation). Если eval сохранён — усилить проверку: запретить любые небуквенно-цифровые символы кроме '+-*/().'. Добавить try-catch как защитный слой.",
+        "fix": "Before:\n            $result = eval($code);\n\nAfter:\n            // Заменить eval на токенезатор + AST-evaluation.\n            // Временная защита: строгая white-list символов + sandbox\n            $safeExpr = trim((string)$expr);\n            if (!preg_match('/^[-0-9+s*\\/().]+$/', $safeExpr)) return $value;\n            try {\n                $result = (float)eval(sprintf('(float)(%s)', addcslashes($safeExpr, '\\0\"\\'\\\\')));\n            } catch (\\Throwable $e) {\n                return $value;\n            }",
         "reviewed": {
           "oldSeverity": "low",
           "newSeverity": "low",
@@ -189,53 +189,95 @@
           "status": "accepted_risk",
           "note": "",
           "author": "Andrew Zahalski",
-          "updated_at": "2026-11-10T08:54:42+00:00"
+          "updated_at": "2026-11-10T11:27:27+00:00"
+        }
+      },
+      {
+        "file": "lib/tables/adminpages/profilesedit.php",
+        "line": "62",
+        "type": "Open Redirect",
+        "severity": "medium",
+        "description": "LocalRedirect используется с URL из запроса без проверки. Функция LocalRedirect() берёт значение $url из параметров (back_url / backurl) и осуществляет редирект. Хотя Bitrix LocalRedirect проверяет начало строки с '/', protocol-relative URL (//evil.com) могут пройти и вызвать внешний редирект.",
+        "recommendation": "Проверить, что URL начинается именно с '/' (не '//') и содержит только локальные пути. Добавить allowlist допустимых путей или исключить protocol-relative значения.",
+        "fix": "Before:\n        \\LocalRedirect($url);\n\nAfter:\n        $url = trim((string)$url);\n        if ($url === '' || str_starts_with($url, '//')) {\n            $url = '/bitrix/admin/awz_allxls_profiles_list.php';\n        }\n        if (strpos($url, '/') !== 0) {\n            $url = '/bitrix/admin/awz_allxls_profiles_list.php';\n        }\n        \\LocalRedirect($url);",
+        "reviewed": {
+          "oldSeverity": "low",
+          "newSeverity": "medium",
+          "changed": true,
+          "category": "public-open-redirect",
+          "versionScope": "current",
+          "version": "current",
+          "currentVersionRelevance": "present-in-current-scan",
+          "action": "allowlist-local-redirects",
+          "confidence": "medium",
+          "rationale": "Kept as medium because request-controlled backurl redirect can support phishing after login; restrict to relative/local URLs."
+        },
+        "partner_disposition": {
+          "status": "accepted_risk",
+          "note": "",
+          "author": "Andrew Zahalski",
+          "updated_at": "2026-11-10T11:27:27+00:00"
         }
       }
     ],
-    "summary": "Обнаружено 7 уязвимостей в 5 файлах при анализе 146 целевых файлов модуля awz.allxls. Максимальная severity: medium. Основная находка — regex injection в движке правил сопоставления колонок импорта (maprules.php:381-382), где пользовательские regex-паттерны из настроек профиля напрямую передаются в preg_match(), что открывает векторы ReDoS и логического обхода правил. Также выявлены три instance отключения SSL-верификации (tech.php, profileshelper.php), и три случая пустых prefilters в Engine-контроллерах (Map, Profiles, Tech).",
+    "summary": "Обнаружено 8 уязвимостей в 7 файлах при анализе 146 целевых файлов модуля awz.allxls. Максимальная severity: medium. Распределение: medium — 4 (Regex Injection в движке правил сопоставления колонок, 3x CSRF на forward-actions с пустыми prefilters), low — 4 (2x Insecure TLS в curl-вызовах, RCE/eval в формулах с частичной защитой, Open Redirect). Все предыдущие находки подтверждены по текущему коду, новых критических изменений, исправляющих уязвимости, в версии 1.0.5 не обнаружено (изменены lib/helper/profileshelper.php — SSL всё ещё отключён; lib/services/iblock.php — unserialize использует allowed_classes=>false, что безопасно).",
     "scannedFiles": 146,
     "riskLevel": "medium",
     "auditedFiles": [
-      "lib/api/map.php",
-      "lib/maprules.php",
-      "lib/api/tech.php",
-      "lib/api/profiles.php",
-      "lib/helper/profileshelper.php",
-      "lib/tables/adminpages/profilesedit.php",
       "lib/api/pimport.php",
       "lib/api/pexport.php",
-      "lib/api/chain/rules.php"
+      "lib/api/profiles.php",
+      "lib/api/tech.php",
+      "lib/api/map.php",
+      "lib/maprules.php",
+      "lib/helper/profileshelper.php",
+      "lib/services/iblock.php",
+      "lib/cron/runner.php",
+      "install/components/allxls.config.permissions/ajax.php",
+      "admin/profiles_edit.php",
+      "admin/profiles_list.php",
+      "admin/sections_edit.php",
+      "admin/sections_list.php",
+      "lib/access/model/usermodel.php",
+      "lib/handlers.php",
+      "lib/access/handlers.php",
+      "lib/cron/schedule.php",
+      "cron/run.php",
+      "options.php",
+      "install/index.php",
+      "install/admin/awz_allxls_profiles_edit.php",
+      "install/admin/awz_allxls_profiles_list.php"
     ],
     "reviewSummary": {
       "reviewedAt": "2026-11-10",
       "method": "BUS-aware triage: preserve original finding fields except severity, add reviewed node with old severity and rationale.",
       "totals": {
-        "vulnerabilities": 7,
-        "changedSeverity": 3,
-        "unchangedSeverity": 4
+        "vulnerabilities": 8,
+        "changedSeverity": 1,
+        "unchangedSeverity": 7
       },
       "rawSeverityCounts": {
-        "medium": 1,
-        "low": 6
+        "medium": 4,
+        "low": 4
       },
       "reviewedSeverityCounts": {
-        "medium": 4,
+        "medium": 5,
         "low": 3
       },
       "currentScope": {
-        "total": 7,
+        "total": 8,
         "rawSeverityCounts": {
-          "medium": 1,
-          "low": 6
+          "medium": 4,
+          "low": 4
         },
         "reviewedSeverityCounts": {
-          "medium": 4,
+          "medium": 5,
           "low": 3
         },
         "reviewedCategories": {
           "kept-as-reported": 4,
-          "csrf-state-change": 3
+          "csrf-state-change": 3,
+          "public-open-redirect": 1
         }
       },
       "historicalUpdatePackages": {
@@ -250,8 +292,8 @@
       ]
     },
     "feedbackSummary": {
-      "updatedAt": "2026-11-10T08:54:42+00:00",
-      "applied": 7
+      "updatedAt": "2026-11-10T11:28:45+00:00",
+      "applied": 0
     }
   }
 }

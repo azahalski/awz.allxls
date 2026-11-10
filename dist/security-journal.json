@@ -5,15 +5,15 @@
   },
   "current_state": {
     "status": "needs_review",
-    "last_run_id": "awz.allxls-1794279848",
+    "last_run_id": "awz.allxls-1794315824",
     "archive_sha256": null,
     "open_findings": 0,
     "blocking_findings_open": 0,
     "false_positive_findings": 0,
-    "accepted_risk_findings": 7,
-    "fixed_findings": 0,
-    "removed_findings": 0,
-    "total_findings": 7
+    "accepted_risk_findings": 8,
+    "fixed_findings": 6,
+    "removed_findings": 1,
+    "total_findings": 15
   },
   "runs": [
     {
@@ -51,6 +51,24 @@
         "reopened_findings": 0,
         "resolved_since_previous_run": 0
       }
+    },
+    {
+      "run_id": "awz.allxls-1794315824",
+      "created_at": "2026-11-10T10:05:19+00:00",
+      "archive_sha256": null,
+      "scanner_request_id": "awz.allxls-1794315824",
+      "input_summary": "Обнаружено 8 уязвимостей в 7 файлах при анализе 146 целевых файлов модуля awz.allxls. Максимальная severity: medium. Распределение: medium — 4 (Regex Injection в движке правил сопоставления колонок, 3x CSRF на forward-actions с пустыми prefilters), low — 4 (2x Insecure TLS в curl-вызовах, RCE/eval в формулах с частичной защитой, Open Redirect). Все предыдущие находки подтверждены по текущему коду, новых критических изменений, исправляющих уязвимости, в версии 1.0.5 не обнаружено (изменены lib/helper/profileshelper.php — SSL всё ещё отключён; lib/services/iblock.php — unserialize использует allowed_classes=>false, что безопасно).",
+      "summary": {
+        "current_scan_findings": 8,
+        "severity_counts": {
+          "medium": 5,
+          "low": 3
+        },
+        "new_findings": 8,
+        "still_open_findings": 0,
+        "reopened_findings": 0,
+        "resolved_since_previous_run": 7
+      }
     }
   ],
   "findings": [
@@ -59,18 +77,15 @@
       "fingerprint": "98026db4fcbd0491b93b45e155745480",
       "type": "Regex Injection",
       "severity": "medium",
-      "status": "accepted_risk",
+      "status": "fixed",
       "first_seen_run_id": "awz.allxls-1794279848",
       "last_seen_run_id": "awz.allxls-1794279848",
-      "resolved_run_id": null,
+      "resolved_run_id": "awz.allxls-1794315824",
       "original_location": {
         "file": "lib/maprules.php",
         "line": "381-382"
       },
-      "current_location": {
-        "file": "lib/maprules.php",
-        "line": "381-382"
-      },
+      "current_location": null,
       "latest_vulnerability": {
         "file": "lib/maprules.php",
         "line": "381-382",
@@ -134,26 +149,34 @@
           "status": "accepted_risk",
           "note": "",
           "author": "Andrew Zahalski"
+        },
+        {
+          "run_id": "awz.allxls-1794315824",
+          "event": "resolved",
+          "at": "2026-11-10T10:05:19+00:00",
+          "status": "fixed"
         }
-      ]
+      ],
+      "resolution": {
+        "type": "not_reproduced_after_rescan",
+        "resolved_in_run": "awz.allxls-1794315824",
+        "reason": "The reviewed scan no longer reports a matching finding for the current archive."
+      }
     },
     {
       "journal_finding_id": "JF-00002",
       "fingerprint": "8cbe1b08cd404203cbbfda9311028638",
       "type": "Information Disclosure",
       "severity": "low",
-      "status": "accepted_risk",
+      "status": "fixed",
       "first_seen_run_id": "awz.allxls-1794279848",
       "last_seen_run_id": "awz.allxls-1794279848",
-      "resolved_run_id": null,
+      "resolved_run_id": "awz.allxls-1794315824",
       "original_location": {
         "file": "lib/api/tech.php",
         "line": "250-251"
       },
-      "current_location": {
-        "file": "lib/api/tech.php",
-        "line": "250-251"
-      },
+      "current_location": null,
       "latest_vulnerability": {
         "file": "lib/api/tech.php",
         "line": "250-251",
@@ -217,26 +240,34 @@
           "status": "accepted_risk",
           "note": "",
           "author": "Andrew Zahalski"
+        },
+        {
+          "run_id": "awz.allxls-1794315824",
+          "event": "resolved",
+          "at": "2026-11-10T10:05:19+00:00",
+          "status": "fixed"
         }
-      ]
+      ],
+      "resolution": {
+        "type": "not_reproduced_after_rescan",
+        "resolved_in_run": "awz.allxls-1794315824",
+        "reason": "The reviewed scan no longer reports a matching finding for the current archive."
+      }
     },
     {
       "journal_finding_id": "JF-00003",
       "fingerprint": "6a365b5a1c33b6f6b95aa3b1e0a98596",
       "type": "Information Disclosure",
       "severity": "low",
-      "status": "accepted_risk",
+      "status": "fixed",
       "first_seen_run_id": "awz.allxls-1794279848",
       "last_seen_run_id": "awz.allxls-1794279848",
-      "resolved_run_id": null,
+      "resolved_run_id": "awz.allxls-1794315824",
       "original_location": {
         "file": "lib/helper/profileshelper.php",
         "line": "598-599,625-626"
       },
-      "current_location": {
-        "file": "lib/helper/profileshelper.php",
-        "line": "598-599,625-626"
-      },
+      "current_location": null,
       "latest_vulnerability": {
         "file": "lib/helper/profileshelper.php",
         "line": "598-599,625-626",
@@ -300,26 +331,34 @@
           "status": "accepted_risk",
           "note": "",
           "author": "Andrew Zahalski"
+        },
+        {
+          "run_id": "awz.allxls-1794315824",
+          "event": "resolved",
+          "at": "2026-11-10T10:05:19+00:00",
+          "status": "fixed"
         }
-      ]
+      ],
+      "resolution": {
+        "type": "not_reproduced_after_rescan",
+        "resolved_in_run": "awz.allxls-1794315824",
+        "reason": "The reviewed scan no longer reports a matching finding for the current archive."
+      }
     },
     {
       "journal_finding_id": "JF-00004",
       "fingerprint": "cf58381071d3840cfbffa892da34a96a",
       "type": "CSRF",
       "severity": "medium",
-      "status": "accepted_risk",
+      "status": "removed",
       "first_seen_run_id": "awz.allxls-1794279848",
       "last_seen_run_id": "awz.allxls-1794279848",
-      "resolved_run_id": null,
+      "resolved_run_id": "awz.allxls-1794315824",
       "original_location": {
         "file": "lib/map.php",
         "line": "37"
       },
-      "current_location": {
-        "file": "lib/map.php",
-        "line": "37"
-      },
+      "current_location": null,
       "latest_vulnerability": {
         "file": "lib/map.php",
         "line": "37",
@@ -383,26 +422,34 @@
           "status": "accepted_risk",
           "note": "",
           "author": "Andrew Zahalski"
+        },
+        {
+          "run_id": "awz.allxls-1794315824",
+          "event": "resolved",
+          "at": "2026-11-10T10:05:19+00:00",
+          "status": "removed"
         }
-      ]
+      ],
+      "resolution": {
+        "type": "file_removed",
+        "resolved_in_run": "awz.allxls-1794315824",
+        "reason": "Last known vulnerable file is absent in the current module tree."
+      }
     },
     {
       "journal_finding_id": "JF-00005",
       "fingerprint": "c31cba40070428322b36d801c7df0db5",
       "type": "CSRF",
       "severity": "medium",
-      "status": "accepted_risk",
+      "status": "fixed",
       "first_seen_run_id": "awz.allxls-1794279848",
       "last_seen_run_id": "awz.allxls-1794279848",
-      "resolved_run_id": null,
+      "resolved_run_id": "awz.allxls-1794315824",
       "original_location": {
         "file": "lib/api/profiles.php",
         "line": "53"
       },
-      "current_location": {
-        "file": "lib/api/profiles.php",
-        "line": "53"
-      },
+      "current_location": null,
       "latest_vulnerability": {
         "file": "lib/api/profiles.php",
         "line": "53",
@@ -466,26 +513,34 @@
           "status": "accepted_risk",
           "note": "",
           "author": "Andrew Zahalski"
+        },
+        {
+          "run_id": "awz.allxls-1794315824",
+          "event": "resolved",
+          "at": "2026-11-10T10:05:19+00:00",
+          "status": "fixed"
         }
-      ]
+      ],
+      "resolution": {
+        "type": "not_reproduced_after_rescan",
+        "resolved_in_run": "awz.allxls-1794315824",
+        "reason": "The reviewed scan no longer reports a matching finding for the current archive."
+      }
     },
     {
       "journal_finding_id": "JF-00006",
       "fingerprint": "6e0b84cbd663058305544b13822fbfbe",
       "type": "CSRF",
       "severity": "medium",
-      "status": "accepted_risk",
+      "status": "fixed",
       "first_seen_run_id": "awz.allxls-1794279848",
       "last_seen_run_id": "awz.allxls-1794279848",
-      "resolved_run_id": null,
+      "resolved_run_id": "awz.allxls-1794315824",
       "original_location": {
         "file": "lib/api/tech.php",
         "line": "52"
       },
-      "current_location": {
-        "file": "lib/api/tech.php",
-        "line": "52"
-      },
+      "current_location": null,
       "latest_vulnerability": {
         "file": "lib/api/tech.php",
         "line": "52",
@@ -549,26 +604,34 @@
           "status": "accepted_risk",
           "note": "",
           "author": "Andrew Zahalski"
+        },
+        {
+          "run_id": "awz.allxls-1794315824",
+          "event": "resolved",
+          "at": "2026-11-10T10:05:19+00:00",
+          "status": "fixed"
         }
-      ]
+      ],
+      "resolution": {
+        "type": "not_reproduced_after_rescan",
+        "resolved_in_run": "awz.allxls-1794315824",
+        "reason": "The reviewed scan no longer reports a matching finding for the current archive."
+      }
     },
     {
       "journal_finding_id": "JF-00007",
       "fingerprint": "5ee04c08c3ecc0e5fafbc2fa9ba594b7",
       "type": "RCE",
       "severity": "low",
-      "status": "accepted_risk",
+      "status": "fixed",
       "first_seen_run_id": "awz.allxls-1794279848",
       "last_seen_run_id": "awz.allxls-1794279848",
-      "resolved_run_id": null,
+      "resolved_run_id": "awz.allxls-1794315824",
       "original_location": {
         "file": "lib/api/profiles.php",
         "line": "162"
       },
-      "current_location": {
-        "file": "lib/api/profiles.php",
-        "line": "162"
-      },
+      "current_location": null,
       "latest_vulnerability": {
         "file": "lib/api/profiles.php",
         "line": "162",
@@ -629,6 +692,537 @@
           "run_id": "awz.allxls-1794279848",
           "event": "partner_disposition_updated",
           "at": "2026-11-10T08:54:42+00:00",
+          "status": "accepted_risk",
+          "note": "",
+          "author": "Andrew Zahalski"
+        },
+        {
+          "run_id": "awz.allxls-1794315824",
+          "event": "resolved",
+          "at": "2026-11-10T10:05:19+00:00",
+          "status": "fixed"
+        }
+      ],
+      "resolution": {
+        "type": "not_reproduced_after_rescan",
+        "resolved_in_run": "awz.allxls-1794315824",
+        "reason": "The reviewed scan no longer reports a matching finding for the current archive."
+      }
+    },
+    {
+      "journal_finding_id": "JF-00008",
+      "fingerprint": "33ff5f047c1ccae7a8dd460524b4536b",
+      "type": "Regex Injection",
+      "severity": "medium",
+      "status": "accepted_risk",
+      "first_seen_run_id": "awz.allxls-1794315824",
+      "last_seen_run_id": "awz.allxls-1794315824",
+      "resolved_run_id": null,
+      "original_location": {
+        "file": "lib/maprules.php",
+        "line": "381-382"
+      },
+      "current_location": {
+        "file": "lib/maprules.php",
+        "line": "381-382"
+      },
+      "latest_vulnerability": {
+        "file": "lib/maprules.php",
+        "line": "381-382",
+        "type": "Regex Injection",
+        "severity": "medium",
+        "description": "Подтверждена регулярная инъекция в операторе regex/not_regex функции checkOperator(). Метод MapRules::checkOperator() принимает $value из настроек правил сопоставления колонок профиля импорта и передаёт его напрямую в preg_match($value, $subject) без валидации разделителя или экранирования. Значение $value задаётся через UI мастера импорта авторизованным оператором модуля. Subject — данные из импортируемого файла (CSV/XLSX/XML), которые обычно неконтролируемы при загрузке с внешнего источника. Возможные векторы: ReDoS (катастрофический бэктрекинг паттерна на каждом элементе импорта) и логический обход собственных проверок модуля паттерном с .*.",
+        "recommendation": "Валидировать длину и сложность regex-паттерна перед применением. Ограничить максимальную длину VALUE в правиле. Установить ограничение pcre.backtrack_limit. Использовать preg_quote() для value если он сравнивается как литерал.",
+        "fix": "Before:\n            case 'regex':       return $value !== '' && (bool)@preg_match($value, $subject);\n            case 'not_regex':   return $value === '' || !(bool)@preg_match($value, $subject);\n\nAfter:\n            case 'regex': {\n                if ($value === '') return false;\n                $prevLimit = ini_get('pcre.backtrack_limit');\n                if ((int)$prevLimit > 1000000) ini_set('pcre.backtrack_limit', '1000000');\n                $result = @preg_match($value, $subject);\n                if ((int)$prevLimit > 1000000) ini_set('pcre.backtrack_limit', $prevLimit);\n                return $result !== false && (bool)$result;\n            }\n            case 'not_regex': {\n                if ($value === '') return true;\n                $prevLimit = ini_get('pcre.backtrack_limit');\n                if ((int)$prevLimit > 1000000) ini_set('pcre.backtrack_limit', '1000000');\n                $result = @preg_match($value, $subject);\n                if ((int)$prevLimit > 1000000) ini_set('pcre.backtrack_limit', $prevLimit);\n                return $result === false || !(bool)$result;\n            }",
+        "reviewed": {
+          "oldSeverity": "medium",
+          "newSeverity": "medium",
+          "changed": false,
+          "category": "kept-as-reported",
+          "versionScope": "current",
+          "version": "current",
+          "currentVersionRelevance": "present-in-current-scan",
+          "action": "fix",
+          "confidence": "medium",
+          "rationale": "Severity left unchanged after review; no stronger Bitrix/BUS-specific downgrade condition was identified from the journal text alone."
+        },
+        "partner_disposition": {
+          "status": "accepted_risk",
+          "note": "",
+          "author": "Andrew Zahalski",
+          "updated_at": "2026-11-10T11:27:27+00:00"
+        }
+      },
+      "events": [
+        {
+          "run_id": "awz.allxls-1794315824",
+          "event": "detected",
+          "at": "2026-11-10T10:05:19+00:00",
+          "location": {
+            "file": "lib/maprules.php",
+            "line": "381-382"
+          },
+          "status": "open"
+        },
+        {
+          "run_id": "awz.allxls-1794315824",
+          "event": "partner_disposition_updated",
+          "at": "2026-11-10T11:27:27+00:00",
+          "status": "accepted_risk",
+          "note": "",
+          "author": "Andrew Zahalski"
+        }
+      ]
+    },
+    {
+      "journal_finding_id": "JF-00009",
+      "fingerprint": "ce9ff442dc92a0785db47ff95acfadc4",
+      "type": "CSRF",
+      "severity": "medium",
+      "status": "accepted_risk",
+      "first_seen_run_id": "awz.allxls-1794315824",
+      "last_seen_run_id": "awz.allxls-1794315824",
+      "resolved_run_id": null,
+      "original_location": {
+        "file": "lib/api/map.php",
+        "line": "36-38"
+      },
+      "current_location": {
+        "file": "lib/api/map.php",
+        "line": "36-38"
+      },
+      "latest_vulnerability": {
+        "file": "lib/api/map.php",
+        "line": "36-38",
+        "type": "CSRF",
+        "severity": "medium",
+        "description": "Action forward в контроллере Api\\Map имеет пустой массив prefilters ('prefilters' => []), что убирает все дефолтные фильтры (Authentication, Csrf). Контроллер Api\\Map отвечает за диалог настройки сопоставления колонок; empty preffilters означает отсутствие CSRF-защиты на любое state-changing действие, которое может быть добавлено в этот action в будущем. Текущий read-only action settings не эксплуатируется напрямую через forward, но архитектурный паттерн опасен.",
+        "recommendation": "Добавить стандартные prefilters: ActionFilter\\Authentication() и ActionFilter\\CloseSession(), даже для read-only actions.",
+        "fix": "Before:\n            'forward'=> [\n                'prefilters' => []\n            ]\n\nAfter:\n            'forward'=> [\n                'prefilters' => [\n                    new ActionFilter\\Authentication(),\n                    new ActionFilter\\CloseSession(),\n                ]\n            ]",
+        "reviewed": {
+          "oldSeverity": "medium",
+          "newSeverity": "medium",
+          "changed": false,
+          "category": "csrf-state-change",
+          "versionScope": "current",
+          "version": "current",
+          "currentVersionRelevance": "present-in-current-scan",
+          "action": "add-sessid-and-owner-checks",
+          "confidence": "medium",
+          "rationale": "Kept as medium because the finding describes state change without check_bitrix_sessid; raise only if cross-user deletion or higher-impact state change is confirmed."
+        },
+        "partner_disposition": {
+          "status": "accepted_risk",
+          "note": "",
+          "author": "Andrew Zahalski",
+          "updated_at": "2026-11-10T11:27:27+00:00"
+        }
+      },
+      "events": [
+        {
+          "run_id": "awz.allxls-1794315824",
+          "event": "detected",
+          "at": "2026-11-10T10:05:19+00:00",
+          "location": {
+            "file": "lib/api/map.php",
+            "line": "36-38"
+          },
+          "status": "open"
+        },
+        {
+          "run_id": "awz.allxls-1794315824",
+          "event": "partner_disposition_updated",
+          "at": "2026-11-10T11:27:27+00:00",
+          "status": "accepted_risk",
+          "note": "",
+          "author": "Andrew Zahalski"
+        }
+      ]
+    },
+    {
+      "journal_finding_id": "JF-00010",
+      "fingerprint": "22b9cb53a483d64fdb2d660d764a5c6c",
+      "type": "CSRF",
+      "severity": "medium",
+      "status": "accepted_risk",
+      "first_seen_run_id": "awz.allxls-1794315824",
+      "last_seen_run_id": "awz.allxls-1794315824",
+      "resolved_run_id": null,
+      "original_location": {
+        "file": "lib/api/profiles.php",
+        "line": "52-54"
+      },
+      "current_location": {
+        "file": "lib/api/profiles.php",
+        "line": "52-54"
+      },
+      "latest_vulnerability": {
+        "file": "lib/api/profiles.php",
+        "line": "52-54",
+        "type": "CSRF",
+        "severity": "medium",
+        "description": "Action forward в контроллере Api\\Profiles имеет пустой массив prefilters ('prefilters' => []). Этот же контроллер обрабатывает CRUD операций профилей (save, saveSettings, cronsave и др.). Forward action используется для перенаправления и сейчас не защищён CSRF. Пустые preffilters оставляют action без какой-либо защиты.",
+        "recommendation": "Добавить стандартные prefilters: ActionFilter\\Authentication() и ActionFilter\\CloseSession().",
+        "fix": "Before:\n            'forward'=> [\n                'prefilters' => []\n            ],\n\nAfter:\n            'forward'=> [\n                'prefilters' => [\n                    new ActionFilter\\Authentication(),\n                    new ActionFilter\\CloseSession(),\n                ]\n            ],",
+        "reviewed": {
+          "oldSeverity": "medium",
+          "newSeverity": "medium",
+          "changed": false,
+          "category": "csrf-state-change",
+          "versionScope": "current",
+          "version": "current",
+          "currentVersionRelevance": "present-in-current-scan",
+          "action": "add-sessid-and-owner-checks",
+          "confidence": "medium",
+          "rationale": "Kept as medium because the finding describes state change without check_bitrix_sessid; raise only if cross-user deletion or higher-impact state change is confirmed."
+        },
+        "partner_disposition": {
+          "status": "accepted_risk",
+          "note": "",
+          "author": "Andrew Zahalski",
+          "updated_at": "2026-11-10T11:27:27+00:00"
+        }
+      },
+      "events": [
+        {
+          "run_id": "awz.allxls-1794315824",
+          "event": "detected",
+          "at": "2026-11-10T10:05:19+00:00",
+          "location": {
+            "file": "lib/api/profiles.php",
+            "line": "52-54"
+          },
+          "status": "open"
+        },
+        {
+          "run_id": "awz.allxls-1794315824",
+          "event": "partner_disposition_updated",
+          "at": "2026-11-10T11:27:27+00:00",
+          "status": "accepted_risk",
+          "note": "",
+          "author": "Andrew Zahalski"
+        }
+      ]
+    },
+    {
+      "journal_finding_id": "JF-00011",
+      "fingerprint": "2e1c05944750e2d6dfc344f556fd122e",
+      "type": "CSRF",
+      "severity": "medium",
+      "status": "accepted_risk",
+      "first_seen_run_id": "awz.allxls-1794315824",
+      "last_seen_run_id": "awz.allxls-1794315824",
+      "resolved_run_id": null,
+      "original_location": {
+        "file": "lib/api/tech.php",
+        "line": "51-53"
+      },
+      "current_location": {
+        "file": "lib/api/tech.php",
+        "line": "51-53"
+      },
+      "latest_vulnerability": {
+        "file": "lib/api/tech.php",
+        "line": "51-53",
+        "type": "CSRF",
+        "severity": "medium",
+        "description": "Action forward в контроллере Api\\Tech имеет пустой массив prefilters ('prefilters' => []). Контроллер Tech отвечает за загрузку файлов и получение списка инфоблоков. Empty preffilters оставляют action без любой защиты Authentication/Csrf.",
+        "recommendation": "Добавить стандартные prefilters: ActionFilter\\Authentication() и ActionFilter\\CloseSession().",
+        "fix": "Before:\n            'forward'=> [\n                'prefilters' => []\n            ]\n\nAfter:\n            'forward'=> [\n                'prefilters' => [\n                    new ActionFilter\\Authentication(),\n                    new ActionFilter\\CloseSession(),\n                ]\n            ]",
+        "reviewed": {
+          "oldSeverity": "medium",
+          "newSeverity": "medium",
+          "changed": false,
+          "category": "csrf-state-change",
+          "versionScope": "current",
+          "version": "current",
+          "currentVersionRelevance": "present-in-current-scan",
+          "action": "add-sessid-and-owner-checks",
+          "confidence": "medium",
+          "rationale": "Kept as medium because the finding describes state change without check_bitrix_sessid; raise only if cross-user deletion or higher-impact state change is confirmed."
+        },
+        "partner_disposition": {
+          "status": "accepted_risk",
+          "note": "",
+          "author": "Andrew Zahalski",
+          "updated_at": "2026-11-10T11:27:27+00:00"
+        }
+      },
+      "events": [
+        {
+          "run_id": "awz.allxls-1794315824",
+          "event": "detected",
+          "at": "2026-11-10T10:05:19+00:00",
+          "location": {
+            "file": "lib/api/tech.php",
+            "line": "51-53"
+          },
+          "status": "open"
+        },
+        {
+          "run_id": "awz.allxls-1794315824",
+          "event": "partner_disposition_updated",
+          "at": "2026-11-10T11:27:27+00:00",
+          "status": "accepted_risk",
+          "note": "",
+          "author": "Andrew Zahalski"
+        }
+      ]
+    },
+    {
+      "journal_finding_id": "JF-00012",
+      "fingerprint": "2de1bf5508a6fcea62aa80202ac54d62",
+      "type": "Information Disclosure",
+      "severity": "low",
+      "status": "accepted_risk",
+      "first_seen_run_id": "awz.allxls-1794315824",
+      "last_seen_run_id": "awz.allxls-1794315824",
+      "resolved_run_id": null,
+      "original_location": {
+        "file": "lib/api/tech.php",
+        "line": "250-251"
+      },
+      "current_location": {
+        "file": "lib/api/tech.php",
+        "line": "250-251"
+      },
+      "latest_vulnerability": {
+        "file": "lib/api/tech.php",
+        "line": "250-251",
+        "type": "Information Disclosure",
+        "severity": "low",
+        "description": "Отключена проверка SSL/TLS сертификата в функции downloadUrl(). При скачивании файла по внешней ссылке (action awz:allxls.api.tech.upload, параметр url) CURLOPT_SSL_VERIFYPEER установлен в false и CURLOPT_SSL_VERIFYHOST в 0. Это делает все HTTPS-запросы уязвимыми к man-in-the-middle атакам. Функция вызывается из uploadAction и требует аутентификации для вызова API.",
+        "recommendation": "Убрать отключение верификации SSL/TLS. Доверять системному хранилищу сертификатов. Для корпоративного прокси с самоподписанным сертификатом — добавить CURLOPT_CAINFO.",
+        "fix": "Before:\n            CURLOPT_SSL_VERIFYPEER => false,\n            CURLOPT_SSL_VERIFYHOST => 0,\n\nAfter:\n            CURLOPT_SSL_VERIFYPEER => true,\n            CURLOPT_SSL_VERIFYHOST => 2,",
+        "reviewed": {
+          "oldSeverity": "low",
+          "newSeverity": "low",
+          "changed": false,
+          "category": "kept-as-reported",
+          "versionScope": "current",
+          "version": "current",
+          "currentVersionRelevance": "present-in-current-scan",
+          "action": "fix",
+          "confidence": "medium",
+          "rationale": "Severity left unchanged after review; no stronger Bitrix/BUS-specific downgrade condition was identified from the journal text alone."
+        },
+        "partner_disposition": {
+          "status": "accepted_risk",
+          "note": "",
+          "author": "Andrew Zahalski",
+          "updated_at": "2026-11-10T11:27:27+00:00"
+        }
+      },
+      "events": [
+        {
+          "run_id": "awz.allxls-1794315824",
+          "event": "detected",
+          "at": "2026-11-10T10:05:19+00:00",
+          "location": {
+            "file": "lib/api/tech.php",
+            "line": "250-251"
+          },
+          "status": "open"
+        },
+        {
+          "run_id": "awz.allxls-1794315824",
+          "event": "partner_disposition_updated",
+          "at": "2026-11-10T11:27:27+00:00",
+          "status": "accepted_risk",
+          "note": "",
+          "author": "Andrew Zahalski"
+        }
+      ]
+    },
+    {
+      "journal_finding_id": "JF-00013",
+      "fingerprint": "11d45737a7c5c48dc8e7e91bbd871bd5",
+      "type": "Information Disclosure",
+      "severity": "low",
+      "status": "accepted_risk",
+      "first_seen_run_id": "awz.allxls-1794315824",
+      "last_seen_run_id": "awz.allxls-1794315824",
+      "resolved_run_id": null,
+      "original_location": {
+        "file": "lib/helper/profileshelper.php",
+        "line": "598-599,625-626"
+      },
+      "current_location": {
+        "file": "lib/helper/profileshelper.php",
+        "line": "598-599,625-626"
+      },
+      "latest_vulnerability": {
+        "file": "lib/helper/profileshelper.php",
+        "line": "598-599,625-626",
+        "type": "Information Disclosure",
+        "severity": "low",
+        "description": "Отключена проверка SSL/TLS сертификата в ProfilesHelper::downloadUrl(). Две точки: FTPS-скачивание (lines 598-599, CURLOPT_SSL_VERIFYPEER => false) и обычный HTTP(S)-запрос (lines 625-626). FTPS-уязвимость критичнее: FTP передаёт логины/пароли в открытом виде. FTPS без проверки сертификата позволяет перехватить учётные данные сервера. HTTP-скачивание — MitM-подмена содержимого файла. Вызывается при актуализации внешних источников профилей (refreshProfileSource).",
+        "recommendation": "Убрать отключение верификации. Добавить CURLOPT_CAINFO при необходимости работы с самоподписанными сертификатами.",
+        "fix": "Before (FTPS):\n            curl_setopt($ch, CURLOPT_SSL_VERIFYPEER, false);\n            curl_setopt($ch, CURLOPT_SSL_VERIFYHOST, 0);\n\nAfter (FTPS):\n            curl_setopt($ch, CURLOPT_SSL_VERIFYPEER, true);\n            curl_setopt($ch, CURLOPT_SSL_VERIFYHOST, 2);",
+        "reviewed": {
+          "oldSeverity": "low",
+          "newSeverity": "low",
+          "changed": false,
+          "category": "kept-as-reported",
+          "versionScope": "current",
+          "version": "current",
+          "currentVersionRelevance": "present-in-current-scan",
+          "action": "fix",
+          "confidence": "medium",
+          "rationale": "Severity left unchanged after review; no stronger Bitrix/BUS-specific downgrade condition was identified from the journal text alone."
+        },
+        "partner_disposition": {
+          "status": "accepted_risk",
+          "note": "",
+          "author": "Andrew Zahalski",
+          "updated_at": "2026-11-10T11:27:27+00:00"
+        }
+      },
+      "events": [
+        {
+          "run_id": "awz.allxls-1794315824",
+          "event": "detected",
+          "at": "2026-11-10T10:05:19+00:00",
+          "location": {
+            "file": "lib/helper/profileshelper.php",
+            "line": "598-599,625-626"
+          },
+          "status": "open"
+        },
+        {
+          "run_id": "awz.allxls-1794315824",
+          "event": "partner_disposition_updated",
+          "at": "2026-11-10T11:27:27+00:00",
+          "status": "accepted_risk",
+          "note": "",
+          "author": "Andrew Zahalski"
+        }
+      ]
+    },
+    {
+      "journal_finding_id": "JF-00014",
+      "fingerprint": "a868c3757a36dbde01d2350ab29ff7d3",
+      "type": "RCE",
+      "severity": "low",
+      "status": "accepted_risk",
+      "first_seen_run_id": "awz.allxls-1794315824",
+      "last_seen_run_id": "awz.allxls-1794315824",
+      "resolved_run_id": null,
+      "original_location": {
+        "file": "lib/maprules.php",
+        "line": "646-648"
+      },
+      "current_location": {
+        "file": "lib/maprules.php",
+        "line": "646-648"
+      },
+      "latest_vulnerability": {
+        "file": "lib/maprules.php",
+        "line": "646-648",
+        "type": "RCE",
+        "severity": "low",
+        "description": "Мёртвый, но опасный паттерн: eval в MapRules::formula(). Метод формулы собирает выражение из ACTION_VALUE правила импорта (тип 'formula'), раскрывает макросы (#VALUE#, #COL_*#), затем выполняет eval('return (float)(' . $expr . ');'). Выражение проходит фильтрацию через preg_match('/^[0-9\\s\\+\\-\\*\\/\\(\\)\\.]+$/'$expr) — только арифметические символы допустимы. Без этой защиты eval позволял бы произвольный PHP-код. Действующий фильтр ограничивает выполнение математическими операциями, но это single-point-of-failure: ослабление паттерна откроет полный RCE.",
+        "recommendation": "Заменить eval на безопасный математический парсер выражений (например, токенизатор + AST-evaluation). Если eval сохранён — усилить проверку: запретить любые небуквенно-цифровые символы кроме '+-*/().'. Добавить try-catch как защитный слой.",
+        "fix": "Before:\n            $result = eval($code);\n\nAfter:\n            // Заменить eval на токенезатор + AST-evaluation.\n            // Временная защита: строгая white-list символов + sandbox\n            $safeExpr = trim((string)$expr);\n            if (!preg_match('/^[-0-9+s*\\/().]+$/', $safeExpr)) return $value;\n            try {\n                $result = (float)eval(sprintf('(float)(%s)', addcslashes($safeExpr, '\\0\"\\'\\\\')));\n            } catch (\\Throwable $e) {\n                return $value;\n            }",
+        "reviewed": {
+          "oldSeverity": "low",
+          "newSeverity": "low",
+          "changed": false,
+          "category": "kept-as-reported",
+          "versionScope": "current",
+          "version": "current",
+          "currentVersionRelevance": "present-in-current-scan",
+          "action": "fix",
+          "confidence": "medium",
+          "rationale": "Severity left unchanged after review; no stronger Bitrix/BUS-specific downgrade condition was identified from the journal text alone."
+        },
+        "partner_disposition": {
+          "status": "accepted_risk",
+          "note": "",
+          "author": "Andrew Zahalski",
+          "updated_at": "2026-11-10T11:27:27+00:00"
+        }
+      },
+      "events": [
+        {
+          "run_id": "awz.allxls-1794315824",
+          "event": "detected",
+          "at": "2026-11-10T10:05:19+00:00",
+          "location": {
+            "file": "lib/maprules.php",
+            "line": "646-648"
+          },
+          "status": "open"
+        },
+        {
+          "run_id": "awz.allxls-1794315824",
+          "event": "partner_disposition_updated",
+          "at": "2026-11-10T11:27:27+00:00",
+          "status": "accepted_risk",
+          "note": "",
+          "author": "Andrew Zahalski"
+        }
+      ]
+    },
+    {
+      "journal_finding_id": "JF-00015",
+      "fingerprint": "a790981663463851d4ad628799513526",
+      "type": "Open Redirect",
+      "severity": "medium",
+      "status": "accepted_risk",
+      "first_seen_run_id": "awz.allxls-1794315824",
+      "last_seen_run_id": "awz.allxls-1794315824",
+      "resolved_run_id": null,
+      "original_location": {
+        "file": "lib/tables/adminpages/profilesedit.php",
+        "line": "62"
+      },
+      "current_location": {
+        "file": "lib/tables/adminpages/profilesedit.php",
+        "line": "62"
+      },
+      "latest_vulnerability": {
+        "file": "lib/tables/adminpages/profilesedit.php",
+        "line": "62",
+        "type": "Open Redirect",
+        "severity": "medium",
+        "description": "LocalRedirect используется с URL из запроса без проверки. Функция LocalRedirect() берёт значение $url из параметров (back_url / backurl) и осуществляет редирект. Хотя Bitrix LocalRedirect проверяет начало строки с '/', protocol-relative URL (//evil.com) могут пройти и вызвать внешний редирект.",
+        "recommendation": "Проверить, что URL начинается именно с '/' (не '//') и содержит только локальные пути. Добавить allowlist допустимых путей или исключить protocol-relative значения.",
+        "fix": "Before:\n        \\LocalRedirect($url);\n\nAfter:\n        $url = trim((string)$url);\n        if ($url === '' || str_starts_with($url, '//')) {\n            $url = '/bitrix/admin/awz_allxls_profiles_list.php';\n        }\n        if (strpos($url, '/') !== 0) {\n            $url = '/bitrix/admin/awz_allxls_profiles_list.php';\n        }\n        \\LocalRedirect($url);",
+        "reviewed": {
+          "oldSeverity": "low",
+          "newSeverity": "medium",
+          "changed": true,
+          "category": "public-open-redirect",
+          "versionScope": "current",
+          "version": "current",
+          "currentVersionRelevance": "present-in-current-scan",
+          "action": "allowlist-local-redirects",
+          "confidence": "medium",
+          "rationale": "Kept as medium because request-controlled backurl redirect can support phishing after login; restrict to relative/local URLs."
+        },
+        "partner_disposition": {
+          "status": "accepted_risk",
+          "note": "",
+          "author": "Andrew Zahalski",
+          "updated_at": "2026-11-10T11:27:27+00:00"
+        }
+      },
+      "events": [
+        {
+          "run_id": "awz.allxls-1794315824",
+          "event": "detected",
+          "at": "2026-11-10T10:05:19+00:00",
+          "location": {
+            "file": "lib/tables/adminpages/profilesedit.php",
+            "line": "62"
+          },
+          "status": "open"
+        },
+        {
+          "run_id": "awz.allxls-1794315824",
+          "event": "partner_disposition_updated",
+          "at": "2026-11-10T11:27:27+00:00",
           "status": "accepted_risk",
           "note": "",
           "author": "Andrew Zahalski"
