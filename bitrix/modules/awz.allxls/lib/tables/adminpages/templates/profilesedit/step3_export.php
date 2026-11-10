@@ -10,6 +10,18 @@ defined('B_PROLOG_INCLUDED') and B_PROLOG_INCLUDED === true or die();
  */
 
 use Bitrix\Main\Localization\Loc;
+
+// конструктор правил BX.TreeConditions (как в импорте — ext модуля awz.admin)
+if (\Bitrix\Main\Loader::includeModule('awz.admin')) {
+    $arTreeDescr = [
+        'js' => '/bitrix/js/awz.admin/core_tree.js',
+        'css' => '/bitrix/panel/awz.admin/catalog_cond.css',
+        'lang' => '/bitrix/modules/awz.admin/lang/ru/conditions.php',
+        'rel' => ['core']
+    ];
+    \CJSCore::RegisterExt('awz_core_condtree', $arTreeDescr);
+    \CJSCore::Init(['awz_core_condtree']);
+}
 ?>
 <div class="awz-allxls-page">
 
@@ -22,11 +34,34 @@ use Bitrix\Main\Localization\Loc;
             <div class="awz-allxls-card__sub"><?=Loc::getMessage('AWZ_ALLXLS_S_PROFILES_EDIT_STEP3_EXPORT_SUB')?></div>
         </div>
 
-        <div id="awz_allxls_profile_export_loader" class="awz-allxls-row__desc">
+        <div id="awz_allxls_profile_export_loader" class="awz-allxls-row__desc" style="padding:20px;">
             <?=Loc::getMessage('AWZ_ALLXLS_S_PROFILES_EDIT_STEP3_LOADING')?>
         </div>
 
         <div id="awz_allxls_profile_export_container" style="padding:0 20px;"></div>
+
+        <?php
+        // JSON-шаблон корня выгрузки — только для формата .json
+        $exportFileExt = strtolower(trim((string)($settings['EXPORT_FILE_EXT'] ?? '')));
+        if ($exportFileExt === '') {
+            $exportFileExt = strtolower(pathinfo((string)($settings['FILE_PATH'] ?? ''), PATHINFO_EXTENSION));
+        }
+        $isJsonExport = ($exportFileExt === 'json');
+        ?>
+        <div class="awz-allxls-row" id="awz_allxls_profile_export_json_template_row"
+             style="<?=$isJsonExport ? '' : 'display:none;';?>padding:0 20px 16px;">
+            <div class="awz-allxls-row__label">JSON-шаблон выгрузки</div>
+            <div class="awz-allxls-row__ctrl">
+                <textarea class="awz-allxls-textarea" id="AWZ_ALLXLS_PROFILE_EXPORT_JSON_TEMPLATE"
+                          style="min-height:90px;font-family:Consolas,monospace;"
+                          placeholder='{"products":{"sheet1":#SHEET1#,"sheet2":#SHEET2#}}'
+                ><?=htmlspecialcharsbx((string)($settings['EXPORT_JSON_TEMPLATE'] ?? ''))?></textarea>
+                <div class="awz-allxls-row__desc">
+                    Корневая структура итогового JSON. Макросы <b>#&lt;ИМЯ ЛИСТА&gt;#</b> (например #SHEET1#)
+                    заменяются на JSON-массив строк соответствующего листа. Пусто — массив объектов первого листа.
+                </div>
+            </div>
+        </div>
     </div>
 
     <div class="awz-allxls-footer">

@@ -12,6 +12,16 @@ class Logger
     private static $loggerInstance = null;
     /** @var bool|null null — DiagLogger еще не проверялся, true — недоступен (fallback) */
     private static $fallback = null;
+    /** @var bool|null null — опция журнала не проверялась */
+    private static $journalEnabled = null;
+
+    public static function isJournalEnabled(): bool
+    {
+        if (self::$journalEnabled === null) {
+            self::$journalEnabled = \Bitrix\Main\Config\Option::get(self::MODULE_ID, 'ENABLE_JOURNAL_LOG', 'N') === 'Y';
+        }
+        return self::$journalEnabled;
+    }
 
     public static function info(string $message, array $context = []): void
     {
@@ -58,8 +68,8 @@ class Logger
         } catch (\Throwable $e) {
             self::$fallback = true;
         }
-        // fallback: debug в CEventLog не пишем (шумно и дорого — запись в БД на каждую строку)
-        if ($level === 'debug') {
+        // fallback: журналирование в CEventLog включается опцией; debug не пишем (шумно и дорого)
+        if ($level === 'debug' || !self::isJournalEnabled()) {
             return;
         }
         $severityMap = [

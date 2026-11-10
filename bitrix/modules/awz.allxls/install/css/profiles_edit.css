@@ -266,6 +266,29 @@ button + .awz-allxls-input {max-width:200px;}
 }
 .awz-allxls-mapdlg__sort:hover{color:#1a7fd4;}
 
+/* иконки действий колонки (шаг 3 экспорт): настройки / удаление */
+.awz-export-icon{
+    display:inline-flex;align-items:center;justify-content:center;
+    width:24px;height:24px;padding:0;
+    border:1px solid #d7dce3;border-radius:50%;background:#fff;
+    font-size:13px;line-height:1;color:#8a94a6;cursor:pointer;user-select:none;vertical-align:middle;
+    transition:border-color .15s,color .15s,background .15s,box-shadow .15s;
+}
+.awz-export-icon svg{display:block;}
+.awz-export-icon:hover{border-color:#2f9cf6;color:#2f9cf6;background:#eaf5fe;}
+.awz-export-icon:focus{outline:none;box-shadow:0 0 0 3px rgba(47,156,246,.15);}
+.awz-export-icon--active{border-color:#2f9cf6;color:#2f9cf6;background:#eaf5fe;}
+.awz-export-icon--del{color:#b3616d;}
+.awz-export-icon--del:hover{border-color:#d14;color:#d14;background:#fdecec;}
+/* иконка перемещения колонки (drag) */
+.awz-allxls-grid .awz-export-col-drag{
+    display:inline-flex;align-items:center;justify-content:center;
+    width:16px;height:24px;color:#b3bcc9;font-size:13px;
+    cursor:grab;user-select:none;transition:color .15s;
+}
+.awz-allxls-grid .awz-export-col-drag:hover{color:#2f9cf6;}
+.awz-allxls-grid .awz-export-col-drag:active{cursor:grabbing;}
+
 /* кнопка «...» выбора макроса рядом с полями правил */
 .awz-allxls-mapdlg__macro-btn{
     display:inline-block;margin:0 0 2px 4px;padding:0 4px;

@@ -95,7 +95,7 @@
 
                 var html = '<span class="awz-export-col-drag" data-sheet="' + s + '" data-col="' + c + '"'
                     + ' title="' + BX.util.htmlspecialchars(BX.message('AWZ_ALLXLS_EXPORT_COL_MOVE') || 'Переместить')
-                    + '" style="cursor:move;color:#999;padding:0 4px;display:inline-block;">&#8942;&#8942;</span>'
+                    + '">&#8942;&#8942;</span>'
                     + '<input type="checkbox" class="awz-export-col-active" data-sheet="' + s + '" data-col="' + c + '"'
                     + ' title="' + BX.util.htmlspecialchars(BX.message('AWZ_ALLXLS_EXPORT_COL_ACTIVE') || 'Колонка активна')
                     + '"' + (inactive ? '' : ' checked')
@@ -171,6 +171,22 @@
         // === окно настроек колонки: как в импорте (ajax + TreeConditions) ===
         proto.openColumnSettings = function (sheetIdx, colIdx) {
             var self = this;
+            // конструктор правил должен быть загружен до инициализации дерева
+            // (шаблон шага 3 подключает ext awz_core_condtree; здесь — fallback)
+            var startOpen = function () {
+                proto._openColumnSettings.call(self, sheetIdx, colIdx);
+            };
+            if (window.BX && BX.TreeConditions) {
+                startOpen();
+            } else {
+                BX.load([
+                    '/bitrix/js/awz.admin/core_tree.js',
+                    '/bitrix/panel/awz.admin/catalog_cond.css'
+                ], startOpen);
+            }
+        };
+        proto._openColumnSettings = function (sheetIdx, colIdx) {
+            var self = this;
             // защита от повторного открытия: обработчики накапливаются при перерисовке
             if (this._colPopupOpen) return;
             this._colPopupOpen = true;
@@ -207,9 +223,9 @@
                                         ? settings.CASE : '';
                                     col.DELIMETER = settings.DELIMETER && settings.DELIMETER !== ''
                                         ? settings.DELIMETER : ', ';
-                                    // оставляем только действия skip (формат импорта)
+                                    // правила в формате импорта: transform + skip
                                     col.RULES = (settings.RULES || []).filter(function (rule) {
-                                        return rule && rule.TYPE === 'skip';
+                                        return rule && (rule.TYPE === 'skip' || rule.TYPE === 'transform');
                                     });
                                 }
                                 popup.close();

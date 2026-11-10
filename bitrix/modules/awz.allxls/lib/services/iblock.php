@@ -2,13 +2,19 @@
 namespace Awz\Allxls\Services;
 
 use Bitrix\Main\Loader;
+use Bitrix\Main\Localization\Loc;
 
 use Awz\Allxls\Handlers;
 use Awz\Allxls\Logger;
 use Awz\Allxls\Helper\ProfilesHelper;
+use Awz\Allxls\Tables\ProfilesTable;
 
 class iblock implements Base
 {
+    /** @var int размер батча агента очистки устаревших элементов */
+    const FINISH_CLEAN_BATCH = 200;
+    /** @var float лимит времени одного шага агента очистки, сек */
+    const FINISH_CLEAN_TIME_LIMIT = 20.0;
     /**
      * @inheritDoc
      */
@@ -369,6 +375,11 @@ class iblock implements Base
         static $productKeys = [
             'WEIGHT', 'WIDTH', 'LENGTH', 'HEIGHT', 'QUANTITY', 'QUANTITY_RESERVED',
             'MEASURE', 'VAT_ID', 'PURCHASING_PRICE', 'PURCHASING_CURRENCY',
+            'VAT_INCLUDED', 'CAN_BUY_ZERO', 'NEGATIVE_AMOUNT_TRACE', 'QUANTITY_TRACE',
+        ];
+        // флаговые поля товара (Y/N): значения нормализуются к 'Y'/'N'
+        static $flagKeys = [
+            'VAT_INCLUDED', 'CAN_BUY_ZERO', 'NEGATIVE_AMOUNT_TRACE', 'QUANTITY_TRACE',
         ];
         try {
             $productFields = [];
@@ -384,7 +395,7 @@ class iblock implements Base
                     $this->applyCatalogStore($elementId, (int)$m[1], (string)$value);
                     continue;
                 }
-                if (!in_array($key, $productKeys, true)) {
+                if (!in_array($key, $productKeys, true) && !preg_match('/^UF_/', $key)) {
                     continue;
                 }
                 $v = trim((string)$value);
@@ -415,7 +426,16 @@ class iblock implements Base
                     }
                     continue;
                 }
-                if ($key !== 'PURCHASING_CURRENCY') {
+                // флаговые поля Y/N: 'Y','ДА','YES','1','TRUE' => Y;
+                // 'N','НЕТ','NO','0','FALSE' => N; прочее — поле не трогаем
+                if (in_array($key, $flagKeys, true)) {
+                    $flag = $this->normalizeFlagValue($v);
+                    if ($flag !== '') {
+                        $productFields[$key] = $flag;
+                    }
+                    continue;
+                }
+                if ($key !== 'PURCHASING_CURRENCY' && !preg_match('/^UF_/', $key)) {
                     $v = str_replace([' ', ','], ['', '.'], $v);
                     if (!is_numeric($v)) continue;
                     $v = $v + 0;
@@ -443,7 +463,24 @@ class iblock implements Base
                     }
                 }
                 if ($diffFields) {
-                    \CCatalogProduct::Update($elementId, $diffFields);
+                    // UF-поля товара (например UF_PRODUCT_GROUP) обновляются
+                    // только через D7-модель: CCatalogProduct::Update их не меняет
+                    $stdFields = array_filter($diffFields, function ($k) {
+                        return !preg_match('/^UF_/', $k);
+                    }, ARRAY_FILTER_USE_KEY);
+                    $ufFields = array_diff_key($diffFields, $stdFields);
+                    if ($stdFields) {
+                        \CCatalogProduct::Update($elementId, $stdFields);
+                    }
+                    foreach ($ufFields as $ufKey => $ufVal) {
+                        $res = \Bitrix\Catalog\Model\Product::update($elementId, [$ufKey => $ufVal]);
+                        if (!$res->isSuccess()) {
+                            Logger::warning('Ошибка сохранения UF-поля товара', [
+                                'element_id' => $elementId, 'field' => $ufKey,
+                                'error' => $res->getErrorMessages(),
+                            ]);
+                        }
+                    }
                 }
             }
         } catch (\Throwable $e) {
@@ -452,6 +489,28 @@ class iblock implements Base
                 ['entity_id' => $entityId, 'element_id' => $elementId, 'error' => $e->getMessage()]
             );
         }
+    }
+
+    /**
+     * Нормализация значения флагового поля товара (Y/N):
+     * 'Y','ДА','YES','1','TRUE','+' => 'Y'; 'N','НЕТ','NO','0','FALSE' => 'N';
+     * прочее (пустое/нераспознанное) — '' (поле не трогаем).
+     *
+     * @param string $raw значение из файла
+     * @return string 'Y'|'N'|''
+     */
+    protected function normalizeFlagValue(string $raw): string
+    {
+        $v = mb_strtoupper(trim($raw));
+        $v = str_replace(['Ё', 'Ë'], ['Е', 'E'], $v);
+        if ($v === '') return '';
+        if (in_array($v, ['Y', 'YES', 'ДА', '1', 'TRUE', '+', 'ВКЛ'], true)) {
+            return 'Y';
+        }
+        if (in_array($v, ['N', 'NO', 'НЕТ', '0', 'FALSE', '-', 'ВЫКЛ'], true)) {
+            return 'N';
+        }
+        return '';
     }
 
     /**
@@ -690,7 +749,7 @@ class iblock implements Base
     /**
      * Системные опции профиля, попавшие в загрузку через ключи SYSTEM_*:
      *  - FACET — инвалидация фасетного индекса инфоблока (пересчитывается lazily);
-     *  - META  — сброс кеша наследуемых мета-значений элемента (пересчет при первом обращении);
+     *  - META  — сброс кеша наследуемых мета-значений элемента (пересчет при первом обращении).
      *  - SEARCH — индексация элемента для поиска (передается в Add/Update, тут не требуется);
      *  - RESIZE_PICTURES — обработка изображений по настройкам инфоблока (передается в Add/Update);
      *  - REPLACE_DATE — дополнительно не требуется: Update сам обновляет TIMESTAMP_X.
@@ -2921,6 +2980,253 @@ class iblock implements Base
             $result[$macro] = $desc;
         }
         return $result;
+    }
+
+    /**
+     * HTML блока «опции после завершения импорта» (этап 4).
+     * Опции применяются один раз по окончании импорта
+     * (Pimport::clearIblockCache при done/finishAction).
+     *
+     * @param array $settings настройки профиля
+     * @return string HTML опций (пустая строка — блок не показывается)
+     */
+    public function getFinishOptionsHtml(array $settings): string
+    {
+        $checked = (string)($settings['SYSTEM_IBLOCK_CACHE'] ?? 'N') === 'Y' ? ' checked' : '';
+        $label = Loc::getMessage('AWZ_ALLXLS_SERVICES_IBLOCK_FINISH_IBLOCK_CACHE')
+            ?: 'Сбрасывать кеш инфоблока';
+        $help = trim((string)(Loc::getMessage('AWZ_ALLXLS_SERVICES_IBLOCK_FINISH_IBLOCK_CACHE_HELP')
+            ?: 'По окончании импорта сбрасывать кеш инфоблока (тегированный кеш и управляемый кеш модуля по этому инфоблоку), чтобы изменения сразу были видны в компонентах с кешированием. По умолчанию выключено.'));
+        $helpHtml = $help !== ''
+            ? '<span class="awz-help" tabindex="0"><span class="awz-help__popup">'
+                .htmlspecialcharsbx($help).'</span>?</span>'
+            : '';
+        $html = '<div class="awz-opt-row">'
+            .'<span class="awz-opt-row__label awz-allxls-switch__label">'
+                .htmlspecialcharsbx($label).$helpHtml.'</span>'
+            .'<div class="awz-opt-row__control">'
+                .'<label class="awz-switch">'
+                    .'<input type="checkbox" id="awz_allxls_profile_process_sys_iblock_cache"'.$checked.'>'
+                    .'<span></span>'
+                .'</label>'
+            .'</div>'
+        .'</div>';
+
+        // очистка устаревших элементов: удаление или депубликация элементов,
+        // не обновлявшихся с момента запуска завершенных профилей
+        $mode = (string)($settings['FINISH_CLEAN_MODE'] ?? '');
+        $scope = (string)($settings['FINISH_CLEAN_SCOPE'] ?? 'profile');
+        $cleanLabel = Loc::getMessage('AWZ_ALLXLS_SERVICES_IBLOCK_FINISH_CLEAN') ?: 'Устаревшие элементы';
+        $cleanHelp = trim((string)(Loc::getMessage('AWZ_ALLXLS_SERVICES_IBLOCK_FINISH_CLEAN_HELP') ?: ''));
+        $cleanHelpHtml = $cleanHelp !== ''
+            ? '<span class="awz-help" tabindex="0"><span class="awz-help__popup">'
+                .htmlspecialcharsbx($cleanHelp).'</span>?</span>'
+            : '';
+        $html .= '<div class="awz-opt-row">'
+            .'<span class="awz-opt-row__label">'.htmlspecialcharsbx($cleanLabel).$cleanHelpHtml.'</span>'
+            .'<div class="awz-opt-row__control">'
+                .'<select id="awz_allxls_profile_process_finish_clean_mode">'
+                    .'<option value=""'.($mode === '' ? ' selected' : '').'>'
+                        .htmlspecialcharsbx(Loc::getMessage('AWZ_ALLXLS_SERVICES_IBLOCK_FINISH_CLEAN_OFF') ?: 'Выключено').'</option>'
+                    .'<option value="deactivate"'.($mode === 'deactivate' ? ' selected' : '').'>'
+                        .htmlspecialcharsbx(Loc::getMessage('AWZ_ALLXLS_SERVICES_IBLOCK_FINISH_CLEAN_DEACTIVATE') ?: 'Деактивировать').'</option>'
+                    .'<option value="delete"'.($mode === 'delete' ? ' selected' : '').'>'
+                        .htmlspecialcharsbx(Loc::getMessage('AWZ_ALLXLS_SERVICES_IBLOCK_FINISH_CLEAN_DELETE') ?: 'Удалять').'</option>'
+                .'</select>'
+            .'</div>'
+        .'</div>';
+
+        $scopeLabel = Loc::getMessage('AWZ_ALLXLS_SERVICES_IBLOCK_FINISH_CLEAN_SCOPE') ?: 'Охват';
+        $scopeHelp = trim((string)(Loc::getMessage('AWZ_ALLXLS_SERVICES_IBLOCK_FINISH_CLEAN_SCOPE_HELP') ?: ''));
+        $scopeHelpHtml = $scopeHelp !== ''
+            ? '<span class="awz-help" tabindex="0"><span class="awz-help__popup">'
+                .htmlspecialcharsbx($scopeHelp).'</span>?</span>'
+            : '';
+        $html .= '<div class="awz-opt-row">'
+            .'<span class="awz-opt-row__label">'.htmlspecialcharsbx($scopeLabel).$scopeHelpHtml.'</span>'
+            .'<div class="awz-opt-row__control">'
+                .'<select id="awz_allxls_profile_process_finish_clean_scope">'
+                    .'<option value="profile"'.($scope !== 'section' ? ' selected' : '').'>'
+                        .htmlspecialcharsbx(Loc::getMessage('AWZ_ALLXLS_SERVICES_IBLOCK_FINISH_CLEAN_SCOPE_PROFILE') ?: 'Текущий профиль').'</option>'
+                    .'<option value="section"'.($scope === 'section' ? ' selected' : '').'>'
+                        .htmlspecialcharsbx(Loc::getMessage('AWZ_ALLXLS_SERVICES_IBLOCK_FINISH_CLEAN_SCOPE_SECTION') ?: 'Профили раздела').'</option>'
+                .'</select>'
+            .'</div>'
+        .'</div>';
+
+        // информация о последней очистке (заполняется агентом) — возле опций
+        $process = is_array($settings['PROCESS'] ?? null) ? $settings['PROCESS'] : [];
+        $info = is_array($process['FINISH_CLEAN_INFO'] ?? null) ? $process['FINISH_CLEAN_INFO'] : [];
+        if ($info) {
+            $date = (string)($info['DATE'] ?? '');
+            $modeInfo = (string)($info['MODE'] ?? '') === 'delete'
+                ? (Loc::getMessage('AWZ_ALLXLS_SERVICES_IBLOCK_FINISH_CLEAN_DELETE') ?: 'Удалять')
+                : (Loc::getMessage('AWZ_ALLXLS_SERVICES_IBLOCK_FINISH_CLEAN_DEACTIVATE') ?: 'Деактивировать');
+            $scopeInfo = (string)($info['SCOPE'] ?? '') === 'section'
+                ? (Loc::getMessage('AWZ_ALLXLS_SERVICES_IBLOCK_FINISH_CLEAN_SCOPE_SECTION') ?: 'Профили раздела')
+                : (Loc::getMessage('AWZ_ALLXLS_SERVICES_IBLOCK_FINISH_CLEAN_SCOPE_PROFILE') ?: 'Текущий профиль');
+            $line = sprintf(
+                '%s: %s, охват «%s», обработано %d, ошибок %d, порог %s%s',
+                Loc::getMessage('AWZ_ALLXLS_SERVICES_IBLOCK_FINISH_CLEAN_LAST') ?: 'Последняя очистка',
+                $date,
+                $scopeInfo,
+                (int)($info['PROCESSED'] ?? 0),
+                (int)($info['FAIL'] ?? 0),
+                (string)($info['THRESHOLD'] ?? ''),
+                (string)($info['DONE'] ?? '') === 'N'
+                    ? ' ('.(Loc::getMessage('AWZ_ALLXLS_SERVICES_IBLOCK_FINISH_CLEAN_CONT') ?: 'продолжается агентом').')'
+                    : ''
+            );
+            $html .= '<div style="margin-top:10px;font-size:12px;color:#7a8797;">'
+                .htmlspecialcharsbx($line).'</div>';
+        }
+
+        return $html;
+    }
+
+    /**
+     * Сохранение итога последней очистки в состояние профиля
+     * (PROCESS.FINISH_CLEAN_INFO) — отображается в блоке опций шага 4.
+     *
+     * @param int $profileId ID профиля
+     * @param array $info итог батча очистки
+     */
+    protected static function saveFinishCleanInfo(int $profileId, array $info): void
+    {
+        try {
+            $profile = ProfilesTable::getById($profileId)->fetch();
+            if (!$profile) return;
+            $settings = is_array($profile['SETTINGS'] ?? null) ? $profile['SETTINGS'] : [];
+            if (!is_array($settings['PROCESS'] ?? null)) $settings['PROCESS'] = [];
+            $settings['PROCESS']['FINISH_CLEAN_INFO'] = $info;
+            ProfilesTable::update($profileId, ['SETTINGS' => $settings]);
+        } catch (\Throwable $e) {
+            Logger::warning(
+                'Не сохранен итог очистки устаревших элементов',
+                ['profile_id' => $profileId, 'error' => $e->getMessage()]
+            );
+        }
+    }
+
+    /**
+     * Агент очистки устаревших элементов инфоблока (опции FINISH_CLEAN_*).
+     * Удаляет или деактивирует элементы, не обновлявшиеся с момента запуска
+     * (RUN_STARTED) завершенных профилей: охват — текущий профиль или все
+     * завершенные импорт-профили раздела с тем же инфоблоком-приемником
+     * (порог = минимум RUN_STARTED). Регистрируется однократно при
+     * завершении импорта (Pimport::scheduleFinishClean), обрабатывает
+     * элементы батчами и перерегистрирует себя, пока есть кандидаты.
+     *
+     * @param int $profileId ID профиля
+     * @return string '' — агент завершен, строка даты — следующий запуск
+     */
+    public static function finishCleanAgent(int $profileId = 0): string
+    {
+        if ($profileId <= 0) return '';
+        try {
+            $profile = ProfilesTable::getById($profileId)->fetch();
+            if (!$profile) return '';
+            $settings = is_array($profile['SETTINGS'] ?? null) ? $profile['SETTINGS'] : [];
+            if ((string)($settings['DEST_TYPE'] ?? '') !== 'iblock') return '';
+            $mode = (string)($settings['FINISH_CLEAN_MODE'] ?? '');
+            if (!in_array($mode, ['deactivate', 'delete'], true)) return '';
+            $iblockId = (int)($settings['IBLOCK_ID'] ?? 0);
+            if ($iblockId <= 0) return '';
+
+            // порог: минимум времени запуска завершенных профилей охвата
+            // (профили в обработке порог не меняют — ожидание не требуется)
+            $scopeSection = (string)($settings['FINISH_CLEAN_SCOPE'] ?? 'profile') === 'section'
+                ? (int)($profile['SECTION_ID'] ?? 0) : null;
+            $starts = [];
+            $rs = ProfilesTable::getList(['select' => ['ID', 'SECTION_ID', 'SETTINGS'], 'filter' => ['TYPE' => 'import']]);
+            while ($row = $rs->fetch()) {
+                if ($scopeSection !== null && (int)$row['SECTION_ID'] !== $scopeSection) continue;
+                if ($scopeSection === null && (int)$row['ID'] !== $profileId) continue;
+                $st = is_array($row['SETTINGS'] ?? null) ? $row['SETTINGS'] : [];
+                if ((string)($st['DEST_TYPE'] ?? '') !== 'iblock') continue;
+                if ((int)($st['IBLOCK_ID'] ?? 0) !== $iblockId) continue;
+                $process = is_array($st['PROCESS'] ?? null) ? $st['PROCESS'] : [];
+                if ((string)($process['DONE'] ?? '') !== 'Y') continue;
+                $started = (int)($process['RUN_STARTED'] ?? 0);
+                if ($started > 0) $starts[] = $started;
+            }
+            if (!$starts) return '';
+            $threshold = \Bitrix\Main\Type\DateTime::createFromTimestamp(min($starts));
+
+            // батч кандидатов: элементы старше порога
+            $filter = ['IBLOCK_ID' => $iblockId, '<=TIMESTAMP_X' => $threshold];
+            if ($mode === 'deactivate') $filter['ACTIVE'] = 'Y';
+            $res = \CIBlockElement::GetList(
+                ['ID' => 'ASC'], $filter, false,
+                ['nTopCount' => self::FINISH_CLEAN_BATCH], ['ID']
+            );
+            $ids = [];
+            while ($el = $res->Fetch()) $ids[] = (int)$el['ID'];
+            if (!$ids) return '';
+
+            $ok = 0;
+            $fail = 0;
+            $processed = 0;
+            $hitTimeLimit = false;
+            $deadline = microtime(true) + self::FINISH_CLEAN_TIME_LIMIT;
+            foreach ($ids as $elementId) {
+                // лимит времени шага агента: по истечении — следующий шаг агентом
+                if (microtime(true) >= $deadline && $processed > 0) {
+                    $hitTimeLimit = true;
+                    break;
+                }
+                try {
+                    if ($mode === 'delete') {
+                        // внешнее удаление: событие OnBeforeIBlockElementDelete
+                        // очищает хеши элемента (повторный импорт возможен)
+                        $ok += \CIBlockElement::Delete($elementId) ? 1 : 0;
+                    } else {
+                        $el = new \CIBlockElement(false);
+                        $ok += $el->Update($elementId, ['ACTIVE' => 'N']) ? 1 : 0;
+                    }
+                } catch (\Throwable $e) {
+                    $fail++;
+                }
+                $processed++;
+            }
+            Logger::info(
+                'Очистка устаревших элементов после импорта',
+                [
+                    'profile_id' => $profileId,
+                    'iblock_id' => $iblockId,
+                    'mode' => $mode,
+                    'scope' => $scopeSection !== null ? 'section' : 'profile',
+                    'threshold' => $threshold->format('Y-m-d H:i:s'),
+                    'batch' => $processed,
+                    'ok' => $ok,
+                    'fail' => $fail,
+                    'time_limit' => $hitTimeLimit,
+                ]
+            );
+            // итог очистки — для показа в блоке «Опции после завершения импорта»
+            $moreCandidates = $hitTimeLimit || $processed >= self::FINISH_CLEAN_BATCH;
+            self::saveFinishCleanInfo($profileId, [
+                'DATE' => date('Y-m-d H:i:s'),
+                'MODE' => $mode,
+                'SCOPE' => $scopeSection !== null ? 'section' : 'profile',
+                'THRESHOLD' => $threshold->format('Y-m-d H:i:s'),
+                'PROCESSED' => $processed,
+                'OK' => $ok,
+                'FAIL' => $fail,
+                'DONE' => $moreCandidates ? 'N' : 'Y',
+            ]);
+            // остались кандидаты — следующий шаг агента
+            if ($moreCandidates) {
+                return \ConvertTimeStamp(time() + 10, 'FULL');
+            }
+            return '';
+        } catch (\Throwable $e) {
+            Logger::error(
+                'Ошибка агента очистки устаревших элементов',
+                ['profile_id' => $profileId, 'error' => $e->getMessage()]
+            );
+            return '';
+        }
     }
 
     /**

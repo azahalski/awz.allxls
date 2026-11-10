@@ -42,6 +42,6 @@ if (!class_exists('\PhpOffice\PhpSpreadsheet\Spreadsheet')
     'css'  => ['/bitrix/css/awz.allxls/profiles_edit.css','/bitrix/js/awz.allxls/select2/select2.min.css'],
     'rel'  => ['jquery3','ajax'],
     // версия для сброса кеша браузера/ядра при изменении JS модуля
-    'version' => '1.0.58',
+    'version' => '1.0.64',
 ));
 

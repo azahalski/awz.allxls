@@ -78,4 +78,13 @@ interface Base
      * @return array макрос => описание
      */
     public function getFoundElementMacros(array $element, array $settings = []): array;
+
+    /**
+     * HTML блока «опции после завершения импорта» (этап 4).
+     * Список опций и их разметка определяются сервисом-приемником;
+     * опции применяются один раз по окончании импорта (done/finishAction).
+     * @param array $settings настройки профиля
+     * @return string HTML опций (пустая строка — блок не показывается)
+     */
+    public function getFinishOptionsHtml(array $settings): string;
 }

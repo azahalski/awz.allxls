@@ -26,11 +26,29 @@ if($request->get('IFRAME_TYPE')==='SIDE_SLIDER'){
 
 if(!AccessController::isViewSettings())
     $APPLICATION->AuthForm(Loc::getMessage("ACCESS_DENIED"));
+
+/**
+ * Синхронизация js/css из install/ модуля в /bitrix/js|css/awz.allxls
+ * (на случай, когда файлы не были скопированы при установке или обновлении)
+ */
+if(defined('AWZ_ALLXLS_OPT_SYNC_ASSETS') && AWZ_ALLXLS_OPT_SYNC_ASSETS === true){
+    CopyDirFiles(
+            $_SERVER['DOCUMENT_ROOT']."/bitrix/modules/".$module_id."/install/js",
+            $_SERVER['DOCUMENT_ROOT']."/bitrix/js/".$module_id,
+            true, true
+    );
+    CopyDirFiles(
+            $_SERVER['DOCUMENT_ROOT']."/bitrix/modules/".$module_id."/install/css",
+            $_SERVER['DOCUMENT_ROOT']."/bitrix/css/".$module_id,
+            true, true
+    );
+}
+
 require($_SERVER["DOCUMENT_ROOT"]."/bitrix/modules/main/include/prolog_admin_after.php");
 
 if ($request->getRequestMethod()==='POST' && AccessController::isEditSettings() && $request->get('Update'))
 {
-    //Option::set($module_id, "LOAD_NBRB", $request->get("LOAD_NBRB")=='Y' ? 'Y' : 'N', "");
+    Option::set($module_id, "ENABLE_JOURNAL_LOG", $request->get("ENABLE_JOURNAL_LOG")=='Y' ? 'Y' : 'N', "");
 }
 
 $aTabs = array();
@@ -61,6 +79,15 @@ $tabControl->Begin();
                         <?=Loc::getMessage('AWZ_ALLXLS_OPT_SHOW_DESC')?>
                     </span>
                 </div>
+            </td>
+        </tr>
+
+        <tr>
+            <td style="width:200px;"><?=Loc::getMessage('AWZ_ALLXLS_OPT_ENABLE_JOURNAL_LOG_TITLE')?></td>
+            <td>
+                <?$val = Option::get($module_id, "ENABLE_JOURNAL_LOG", "N", "");?>
+                <input type="checkbox" value="Y" name="ENABLE_JOURNAL_LOG" <?if($val=="Y") echo "checked";?> <?if(!AccessController::isEditSettings()) echo "disabled";?>>
+                <div class="adm-info-text"><?=Loc::getMessage('AWZ_ALLXLS_OPT_ENABLE_JOURNAL_LOG_DESC')?></div>
             </td>
         </tr>
 

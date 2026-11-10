@@ -259,7 +259,7 @@ class ProfilesTable extends DataManager
             // и параметры запуска (время хита, макс. время скрипта, тип хеша,
             // журнал ошибок, режим дедупа, системные опции) не должны сбрасывать хеши строк
             $hashSettings = $settings;
-            foreach (['PROCESS', 'HIT_TIME_LIMIT', 'MAX_EXECUTION_TIME', 'LOG_ERRORS', 'HASH_TYPE', 'HASH_MEM_CACHE', 'HASH_USED_COLUMNS', 'STEP_BY_STEP', 'SKIP_IF_NOT_FOUND', 'SYSTEM_REPLACE_DATE', 'SYSTEM_FACET', 'SYSTEM_META', 'SYSTEM_SEARCH_NEW', 'SYSTEM_SEARCH_UPDATE', 'SYSTEM_RESIZE_PICTURES', 'SYSTEM_UPDATE_ORDER', 'CRON_MODE', 'CAT_TREE'] as $volatileKey) {
+            foreach (['PROCESS', 'HIT_TIME_LIMIT', 'MAX_EXECUTION_TIME', 'LOG_ERRORS', 'HASH_TYPE', 'HASH_MEM_CACHE', 'HASH_USED_COLUMNS', 'STEP_BY_STEP', 'SKIP_IF_NOT_FOUND', 'SYSTEM_REPLACE_DATE', 'SYSTEM_FACET', 'SYSTEM_META', 'SYSTEM_SEARCH_NEW', 'SYSTEM_SEARCH_UPDATE', 'SYSTEM_RESIZE_PICTURES', 'SYSTEM_UPDATE_ORDER', 'SYSTEM_IBLOCK_CACHE', 'FINISH_CLEAN_MODE', 'FINISH_CLEAN_SCOPE', 'CRON_MODE', 'CAT_TREE'] as $volatileKey) {
                 unset($hashSettings[$volatileKey]);
             }
             // рекурсивная сортировка ключей — стабильный хеш независимо от порядка сохранения

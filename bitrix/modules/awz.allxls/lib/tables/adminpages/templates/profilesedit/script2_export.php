@@ -23,7 +23,8 @@ use Bitrix\Main\Localization\Loc;
             listUrl: '<?=$listUrl?>',
             action: 'awz:allxls.api.profiles.savefile',
             formId: 'awz_allxls_profile_file_form',
-            saveBtnId: 'awz_allxls_profile_file_save'
+            saveBtnId: 'awz_allxls_profile_file_save',
+            skipXmlPaths: true
         });
         window.awzAllxlsProfilesEditFile.init();
 
@@ -52,6 +53,11 @@ use Bitrix\Main\Localization\Loc;
                 btn.classList.add(active ? 'awz-allxls-btn--primary' : 'awz-allxls-btn--ghost');
             });
             syncPath();
+            // кодировка CSV и разделитель — только для .csv
+            var encRow = document.getElementById('awz_allxls_profile_csv_encoding_row');
+            var delimRow = document.getElementById('awz_allxls_profile_csv_delimiter_row');
+            if (encRow) encRow.style.display = (ext === 'csv') ? '' : 'none';
+            if (delimRow) delimRow.style.display = (ext === 'csv') ? '' : 'none';
         }
 
         if (nameInput) {
@@ -61,13 +67,15 @@ use Bitrix\Main\Localization\Loc;
         extBtns.forEach(function (btn) {
             BX.bind(btn, 'click', function (e) {
                 BX.PreventDefault(e);
-                showExtBtn(this.getAttribute('data-ext') === 'xlsx' ? 'xlsx' : 'csv');
+                showExtBtn(this.getAttribute('data-ext'));
             });
         });
 
         // начальное расширение из сохраненного пути
         var saved = pathInput ? pathInput.value : '';
-        if (/\.xlsx$/i.test(saved)) showExtBtn('xlsx'); else showExtBtn('csv');
+        if (/\.xlsx$/i.test(saved)) showExtBtn('xlsx');
+        else if (/\.json$/i.test(saved)) showExtBtn('json');
+        else showExtBtn('csv');
 
         // === кодировка CSV: показ/скрытие и передача на сервер ===
         var encRow = document.getElementById('awz_allxls_profile_csv_encoding_row');
@@ -83,7 +91,7 @@ use Bitrix\Main\Localization\Loc;
         if (encType) BX.bind(encType, 'change', toggleEncoding);
         toggleEncoding();
 
-        // добавляем кодировку в данные, отправляемые на сервер
+        // добавляем кодировку и JSON-фильтр в данные, отправляемые на сервер
         if (window.awzAllxlsProfilesEditFile) {
             var ob = window.awzAllxlsProfilesEditFile;
             var origCollect = ob.collect;
@@ -93,6 +101,8 @@ use Bitrix\Main\Localization\Loc;
                     data.csv_encoding = encType.value;
                     data.csv_encoding_custom = (encType.value === 'other' && encCustom) ? BX.util.trim(encCustom.value) : '';
                 }
+                var filterInput = document.getElementById('AWZ_ALLXLS_PROFILE_EXPORT_FILTER');
+                if (filterInput) data.export_filter = filterInput.value;
                 return data;
             };
         }

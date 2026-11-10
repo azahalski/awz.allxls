@@ -4,6 +4,9 @@ namespace Awz\Allxls\Api;
 use Bitrix\Main\Loader;
 use Bitrix\Main\Localization\Loc;
 use Awz\Allxls\Tables\ProfilesTable;
+use Awz\Allxls\Services\ExportBase;
+use Awz\Allxls\Services\iblockexport;
+use Awz\Allxls\MapRules;
 use Awz\Allxls\Helper\ProfilesHelper;
 use PhpOffice\PhpSpreadsheet\IOFactory;
 use PhpOffice\PhpSpreadsheet\Spreadsheet;
@@ -21,6 +24,13 @@ use PhpOffice\PhpSpreadsheet\Cell\Coordinate;
  * Файл выгрузки: /upload/awz.allxls/export/profile_<id>.xlsx (PhpSpreadsheet).
  * Пошаговость: за один хит выгружается порция элементов (лимит по времени),
  * состояние (индекс листа, последний ID элемента) хранится в SETTINGS['PROCESS_EXPORT'].
+ *
+ * Источник данных — сервис приёмника (Awz\Allxls\Services\ExportBase, по
+ * DEST_TYPE: 'awz.allxls.<dest_type>export' из ServiceLocator, по умолчанию
+ * awz.allxls.iblockexport). Подмена — событие onAwzAllxlsResolveExportService.
+ * JSON-фильтр выборки (SETTINGS['EXPORT_FILTER'], шаг 2) передается в сервис.
+ * Правила обработки колонок — движок импорта Awz\Allxls\MapRules
+ * (TYPE=transform|skip: действия преобразования + пропуск строки).
  */
 class Pexport extends \Bitrix\Main\Engine\Controller {
 
@@ -160,6 +170,117 @@ class Pexport extends \Bitrix\Main\Engine\Controller {
 
 
     /**
+     * Резолв сервиса-источника экспорта по DEST_TYPE профиля.
+     *
+     * Код сервиса: 'awz.allxls.<dest_type>export' (по умолчанию iblockexport).
+     * Подмена/расширение — событие D7 onAwzAllxlsResolveExportService
+     * (обработчик меняет параметр service — объект Services\ExportBase —
+     * и добавляет EventResult(SUCCESS, [])).
+     *
+     * @param array $settings настройки профиля
+     * @return ExportBase
+     */
+    protected function resolveService(array $settings): ExportBase
+    {
+        $destType = (string)($settings['DEST_TYPE'] ?? 'iblock');
+        if ($destType === '') $destType = 'iblock';
+        $service = null;
+        $code = 'awz.allxls.'.$destType.'export';
+        try {
+            $locator = \Bitrix\Main\DI\ServiceLocator::getInstance();
+            if ($locator->has($code)) {
+                $service = $locator->get($code);
+            }
+        } catch (\Throwable $e) {
+            $service = null;
+        }
+        if (!$service instanceof ExportBase) {
+            $service = new iblockexport();
+        }
+
+        $event = new \Bitrix\Main\Event('awz.allxls', 'onAwzAllxlsResolveExportService', [
+            'dest_type' => $destType,
+            'service' => $service,
+        ]);
+        $event->send();
+        foreach ($event->getResults() as $result) {
+            if ($result->getType() === \Bitrix\Main\EventResult::SUCCESS) {
+                $params = $result->getParameters();
+                if (isset($params['service']) && $params['service'] instanceof ExportBase) {
+                    $service = $params['service'];
+                }
+            }
+        }
+        return $service;
+    }
+
+    /**
+     * JSON-фильтр выборки элементов (шаг 2) в виде массива.
+     *
+     * @param array $settings настройки профиля
+     * @return array (невалидный/пустой JSON — пустой массив)
+     */
+    protected function getExportFilter(array $settings): array
+    {
+        $raw = trim((string)($settings['EXPORT_FILTER'] ?? ''));
+        if ($raw === '') return [];
+        try {
+            $decoded = \Bitrix\Main\Web\Json::decode($raw);
+            return is_array($decoded) ? $decoded : [];
+        } catch (\Throwable $e) {
+            return [];
+        }
+    }
+
+    /**
+     * Итоговый фильтр выборки записей для сервиса экспорта.
+     *
+     * База — JSON-фильтр профиля (SETTINGS['EXPORT_FILTER'], шаг 2).
+     * Финальный фильтр можно изменить обработчиком события D7
+     * onAwzAllxlsBuildExportFilter (модуль awz.allxls):
+     *
+     *   EventManager::getInstance()->addEventHandler(
+     *       'awz.allxls', 'onAwzAllxlsBuildExportFilter',
+     *       function (\Bitrix\Main\Event $event) {
+     *           $filter = $event->getParameter('filter');   // текущий массив фильтра
+     *           $filter['ACTIVE'] = 'Y';                    // ... свои условия
+     *           $event->setParameter('filter', $filter);
+     *           $event->addResult(new \Bitrix\Main\EventResult(
+     *               \Bitrix\Main\EventResult::SUCCESS, []
+     *           ));
+     *       }
+     *   );
+     *
+     * Параметры события: id (ID профиля), dest_type, entity_id, filter, settings.
+     *
+     * @param int $id ID профиля
+     * @param array $settings настройки профиля
+     * @return array фильтр в формате сервиса-источника
+     */
+    protected function buildExportFilter(int $id, array $settings): array
+    {
+        $destType = (string)($settings['DEST_TYPE'] ?? 'iblock');
+        $entityId = (string)($settings['IBLOCK_ID'] ?? '');
+        $filter = $this->getExportFilter($settings);
+
+        $event = new \Bitrix\Main\Event('awz.allxls', 'onAwzAllxlsBuildExportFilter', [
+            'id' => $id,
+            'dest_type' => $destType,
+            'entity_id' => $entityId,
+            'filter' => $filter,
+            'settings' => $settings,
+        ]);
+        $event->send();
+        foreach ($event->getResults() as $result) {
+            $params = $result->getParameters();
+            if (isset($params['filter']) && is_array($params['filter'])) {
+                $filter = $params['filter'];
+            }
+        }
+        return $filter;
+    }
+
+    /**
      * Настройки экспорта (этап 3): сохраненные листы + список полей инфоблока.
      *
      * @param int $id ID профиля
@@ -172,17 +293,72 @@ class Pexport extends \Bitrix\Main\Engine\Controller {
         if ($profile === null) return null;
 
         $settings = $profile['SETTINGS'] ?? null;
-        $savedSheets = is_array($settings['EXPORT_SHEETS'] ?? null) ? $settings['EXPORT_SHEETS'] : [];
 
-        // список полей для выбора (базовые поля + свойства инфоблока)
-        $groups = ProfilesHelper::getFieldGroups($profile, $id);
+        // список полей для выбора — из сервиса-источника экспорта,
+        // расширение/замена — обработчиком события onAwzAllxlsGetExportFields
+        $groups = $this->getExportFields($id, $profile, is_array($settings) ? $settings : []);
 
         return [
             'id' => $id,
             'iblock_id' => (int)($settings['IBLOCK_ID'] ?? 0),
-            'sheets' => $savedSheets,
+            'sheets' => is_array($settings['EXPORT_SHEETS'] ?? null) ? $settings['EXPORT_SHEETS'] : [],
             'groups' => $groups,
+            'json_template' => (string)($settings['EXPORT_JSON_TEMPLATE'] ?? ''),
         ];
+    }
+
+    /**
+     * Группированный список полей источника для селектов колонок (шаг 3).
+     *
+     * База — сервис-источник экспорта (Services\ExportBase::getFields,
+     * для iblockexport — ProfilesHelper::getFieldGroups: базовые поля +
+     * свойства инфоблока + цены/каталог/склады + событие onAwzAllxlsGetProfileFields).
+     *
+     * Расширение/замена списка — обработчиком события D7
+     * onAwzAllxlsGetExportFields (модуль awz.allxls):
+     *
+     *   EventManager::getInstance()->addEventHandler(
+     *       'awz.allxls', 'onAwzAllxlsGetExportFields',
+     *       function (\Bitrix\Main\Event $event) {
+     *           $groups = $event->getParameter('GROUPS');
+     *           $groups[] = ['NAME' => 'Мои поля', 'ITEMS' => [['ID' => 'MY_FIELD', 'NAME' => 'Мое поле']]];
+     *           $event->setParameter('GROUPS', $groups);
+     *           $event->addResult(new \Bitrix\Main\EventResult(
+     *               \Bitrix\Main\EventResult::SUCCESS, []
+     *           ));
+     *       }
+     *   );
+     *
+     * Параметры события: PROFILE_ID, DEST_TYPE, ENTITY_ID, GROUPS, SETTINGS.
+     *
+     * @param int $id ID профиля
+     * @param array $profile строка профиля
+     * @param array $settings настройки профиля
+     * @return array
+     */
+    protected function getExportFields(int $id, array $profile, array $settings): array
+    {
+        $service = $this->resolveService($settings);
+        $entityId = (string)($settings['IBLOCK_ID'] ?? '');
+        $groups = $service->getFields($entityId);
+
+        $event = new \Bitrix\Main\Event('awz.allxls', 'onAwzAllxlsGetExportFields', [
+            'PROFILE_ID' => $id,
+            'DEST_TYPE' => (string)($settings['DEST_TYPE'] ?? 'iblock'),
+            'ENTITY_ID' => $entityId,
+            'GROUPS' => $groups,
+            'SETTINGS' => $settings,
+        ]);
+        $event->send();
+        foreach ($event->getResults() as $result) {
+            if ($result->getType() === \Bitrix\Main\EventResult::SUCCESS) {
+                $params = $result->getParameters();
+                if (is_array($params['GROUPS'] ?? null)) {
+                    $groups = $params['GROUPS'];
+                }
+            }
+        }
+        return $groups;
     }
 
     /**
@@ -193,7 +369,7 @@ class Pexport extends \Bitrix\Main\Engine\Controller {
      * @param array $sheets листы экспорта
      * @return array|null
      */
-    public function saveSettingsAction(int $id = 0, array $sheets = [])
+    public function saveSettingsAction(int $id = 0, array $sheets = [], string $json_template = '')
     {
         $id = (int)$id;
         if ($this->processNotDoneGuard($id)) return null;
@@ -208,6 +384,13 @@ class Pexport extends \Bitrix\Main\Engine\Controller {
         $isCsv = $filePath !== '' && strtolower(pathinfo($filePath, PATHINFO_EXTENSION)) === 'csv';
         if ($isCsv) {
             $sheets = array_slice($sheets, 0, 1);
+        }
+
+        // JSON-шаблон корня выгрузки (макросы #<ИМЯ ЛИСТА>#) — только для формата json
+        if (strtolower(pathinfo($filePath, PATHINFO_EXTENSION)) === 'json') {
+            $settings['EXPORT_JSON_TEMPLATE'] = trim($json_template);
+        } else {
+            $settings['EXPORT_JSON_TEMPLATE'] = '';
         }
 
         $normalized = [];
@@ -227,28 +410,9 @@ class Pexport extends \Bitrix\Main\Engine\Controller {
                 $case = (string)($col['CASE'] ?? '');
                 if (!in_array($case, ['lower', 'upper', 'firstupper'], true)) $case = '';
 
-                // правила обработки — в формате импорта (TYPE/AGG/CONDITIONS/ACTION...)
-                // поддерживается только действие skip (пропуск строки)
-                $rules = [];
-                foreach ((array)($col['RULES'] ?? []) as $rule) {
-                    if (!is_array($rule)) continue;
-                    $type = (string)($rule['TYPE'] ?? '');
-                    if ($type === '' && (string)($rule['ACTION'] ?? '') === 'skip_row') {
-                        // старый формат: {ACTION: skip_row, CONDITION: empty}
-                        $rules[] = [
-                            'TYPE' => 'skip',
-                            'AGG' => 'AND',
-                            'CONDITIONS' => [['OP' => 'empty', 'VALUE' => '', 'VALUE2' => '']],
-                        ];
-                        continue;
-                    }
-                    if ($type !== 'skip') continue;
-                    $rules[] = [
-                        'TYPE' => 'skip',
-                        'AGG' => in_array(($rule['AGG'] ?? 'AND'), ['AND', 'OR', 'AND_NOT', 'OR_NOT'], true) ? $rule['AGG'] : 'AND',
-                        'CONDITIONS' => self::normalizeExportConditions((array)($rule['CONDITIONS'] ?? [])),
-                    ];
-                }
+                // правила обработки — полный формат импорта (MapRules):
+                // TYPE=transform (действие преобразования) и TYPE=skip (пропуск строки)
+                $rules = self::normalizeExportRules((array)($col['RULES'] ?? []));
 
                 $columns[] = [
                     'NAME' => trim((string)($col['NAME'] ?? '')),
@@ -330,9 +494,29 @@ class Pexport extends \Bitrix\Main\Engine\Controller {
         $trim = (($column['TRIM'] ?? 'N') === 'Y') ? ' checked' : '';
         $case = (string)($column['CASE'] ?? '');
         $dlmtr = (string)($column['DELIMETER'] ?? ', ');
-        $rules = (isset($column['RULES']) && is_array($column['RULES'])) ? $column['RULES'] : [];
+        // правила приводим к формату импорта (MapRules) — старые форматы конвертируются
+        $rules = self::normalizeExportRules(
+            (isset($column['RULES']) && is_array($column['RULES'])) ? $column['RULES'] : []
+        );
 
         $uniq = 'awz_exp_cond_' . md5($id . '|export|' . $sheet . '|' . $col) . '_' . mt_rand(1000, 999999);
+
+        // источники условий и макросы — по колонкам листа (формат импорта:
+        // ключ колонки = код поля, HEADER = заголовок колонки)
+        $pseudoColumns = [];
+        foreach ((array)($sheetCfg['COLUMNS'] ?? []) as $colKey => $colCfg) {
+            if (!is_array($colCfg)) continue;
+            $field = (string)($colCfg['FIELD'] ?? '');
+            if ($field === '') continue;
+            $pseudoColumns[$field] = [
+                'LETTER' => (string)($colKey + 1),
+                'HEADER' => (string)($colCfg['NAME'] ?? ''),
+                'ALIAS' => '',
+            ];
+        }
+        $condRules = self::buildExportCondRules($pseudoColumns, (string)($column['FIELD'] ?? ''));
+        $condValues = \Awz\Allxls\Api\Map::buildCondValues($rules);
+        $macros = self::buildExportMacros($pseudoColumns);
 
         ob_start();
         ?>
@@ -357,10 +541,6 @@ class Pexport extends \Bitrix\Main\Engine\Controller {
 
             <div class="awz-allxls-mapdlg__section">Правила обработки</div>
 
-            <?php
-            $condRules = self::buildExportCondRules();
-            $condValues = \Awz\Allxls\Api\Map::buildCondValues($rules);
-            ?>
             <form id="<?= $uniq ?>_form" data-map-cond-form onsubmit="return false;">
                 <div id="<?= $uniq ?>"></div>
             </form>
@@ -371,9 +551,25 @@ class Pexport extends \Bitrix\Main\Engine\Controller {
                     prefix: 'maprule',
                     rules: <?= \Bitrix\Main\Web\Json::encode($condRules) ?>,
                     values: <?= \Bitrix\Main\Web\Json::encode($condValues) ?>,
-                    macros: {}
+                    macros: <?= \Bitrix\Main\Web\Json::encode($macros) ?>
                 });
             </script>
+            <style>
+            <?foreach(\Awz\Allxls\Api\Map::getRuleActions(true) as $visibleId=>$visibleAr){?>
+                <?foreach(['aval','aval2'] as $action){?>
+                    <?if(!in_array($action, $visibleAr)){?>
+                    .awz-allxls-mapdlg a[data-a="<?=$visibleId?>"][data-inp="<?=$action?>"], .awz-allxls-mapdlg a[data-a="<?=$visibleId?>"][data-inp="<?=$action?>"] + input + a {display: none!important;}
+                    <?}?>
+                <?}?>
+            <?}?>
+            <?foreach(\Awz\Allxls\Api\Map::getRuleOperators(true) as $visibleId=>$visibleAr){?>
+                <?foreach(['value','value2'] as $action){?>
+                    <?if(!in_array($action, $visibleAr)){?>
+                    .awz-allxls-mapdlg a[data-op="<?=$visibleId?>"][data-inp="<?=$action?>"], .awz-allxls-mapdlg a[data-op="<?=$visibleId?>"][data-inp="<?=$action?>"] + input + a {display: none!important;}
+                    <?}?>
+                <?}?>
+            <?}?>
+            </style>
         </div>
         <?php
         $html = ob_get_clean();
@@ -388,12 +584,19 @@ class Pexport extends \Bitrix\Main\Engine\Controller {
     }
 
     /**
-     * Описания контролов BX.TreeConditions для правил экспорта.
-     * В отличие от импорта доступно только одно действие — «Пропустить строку»,
-     * условие проверяется по значению выгружаемой колонки.
+     * Описания контролов BX.TreeConditions для правил экспорта (как в импорте).
+     * Доступные правила: transform (действие преобразования значения) и
+     * skip (пропуск строки); условия — по любой колонке листа (SOURCE),
+     * вложенные группы без ограничений.
+     *
+     * @param array $columns псевдоколонки листа (код поля => {LETTER, HEADER})
+     * @param string $from код поля текущей колонки
+     * @return array
      */
-    public static function buildExportCondRules(): array
+    public static function buildExportCondRules(array $columns = [], string $from = ''): array
     {
+        $currentSourceValues = \Awz\Allxls\Api\Map::getRuleCurrentValues([], $columns, $from, '');
+
         $groupVisual = [
             'controls' => ['fLevel', 'notLevel'],
             'values' => [
@@ -409,8 +612,6 @@ class Pexport extends \Bitrix\Main\Engine\Controller {
                 ['style' => 'condition-logic-or', 'message' => 'ИЛИ НЕ'],
             ],
         ];
-
-        $sourceValues = ['value' => 'Текущее значение колонки'];
 
         $rules = [];
 
@@ -439,15 +640,22 @@ class Pexport extends \Bitrix\Main\Engine\Controller {
             ],
         ];
 
-        // условие (лист)
+        // условие (лист) — источник: колонки листа / макросы
         $rules[] = [
             'controlId' => 'cond',
             'group' => false,
             'label' => 'Условие',
             'defaultText' => 'Условие',
-            'showIn' => ['ruleSkip', 'condGroup'],
+            'showIn' => ['ruleTransform', 'ruleSkip', 'condGroup'],
             'control' => [
-                'Если значение ',
+                'Если ',
+                [
+                    'type' => 'select',
+                    'id' => 'source',
+                    'name' => 'source',
+                    'values' => $currentSourceValues,
+                    'defaultValue' => isset($currentSourceValues[$from]) ? $from : '',
+                ],
                 [
                     'type' => 'select',
                     'id' => 'op',
@@ -476,7 +684,7 @@ class Pexport extends \Bitrix\Main\Engine\Controller {
             'group' => true,
             'label' => 'Группа условий',
             'defaultText' => 'Группа условий',
-            'showIn' => ['ruleSkip', 'condGroup'],
+            'showIn' => ['ruleTransform', 'ruleSkip', 'condGroup'],
             'visual' => $groupVisual,
             'control' => [
                 [
@@ -496,7 +704,54 @@ class Pexport extends \Bitrix\Main\Engine\Controller {
             ],
         ];
 
-        // единственное действие: пропуск строки
+        // правило: преобразовать значение выгрузки
+        $rules[] = [
+            'controlId' => 'ruleTransform',
+            'group' => true,
+            'label' => 'Преобразовать значение',
+            'defaultText' => 'Преобразовать значение',
+            'showIn' => ['CondGroup'],
+            'visual' => $groupVisual,
+            'control' => [
+                'Действие со значением: ',
+                [
+                    'type' => 'select',
+                    'id' => 'action',
+                    'name' => 'action',
+                    'values' => \Awz\Allxls\Api\Map::getRuleActions(),
+                    'defaultValue' => 'replace',
+                ],
+                [
+                    'type' => 'input',
+                    'id' => 'aval',
+                    'name' => 'aval',
+                    'defaultValue' => '',
+                ],
+                [
+                    'type' => 'input',
+                    'id' => 'aval2',
+                    'name' => 'aval2',
+                    'defaultValue' => '',
+                ],
+                'Если ',
+                [
+                    'id' => 'fLevel',
+                    'name' => 'aggregator',
+                    'type' => 'select',
+                    'values' => ['AND' => 'все условия', 'OR' => 'любое из условий'],
+                    'defaultValue' => 'AND',
+                ],
+                [
+                    'id' => 'notLevel',
+                    'name' => 'not',
+                    'type' => 'select',
+                    'values' => ['N' => 'выполнено(ы)', 'Y' => 'не выполнено(ы)'],
+                    'defaultValue' => 'N',
+                ],
+            ],
+        ];
+
+        // правило: пропустить строку выгрузки
         $rules[] = [
             'controlId' => 'ruleSkip',
             'group' => true,
@@ -524,6 +779,45 @@ class Pexport extends \Bitrix\Main\Engine\Controller {
         ];
 
         return $rules;
+    }
+
+    /**
+     * Макросы правил экспорта: значение колонки-источника + макросы по
+     * колонкам листа (#COL_<КОД ПОЛЯ># — начальное значение).
+     *
+     * @param array $columns псевдоколонки листа (код поля => {LETTER, HEADER})
+     * @return array
+     */
+    protected static function buildExportMacros(array $columns = []): array
+    {
+        $macros = [
+            '#VALUE#' => 'Начальное значение колонки-источника (до правил)',
+            '#VALUE_PROCESSED#' => 'Текущее (обработанное) значение колонки-источника',
+        ];
+        foreach ($columns as $k => $v) {
+            $letter = (string)($v['LETTER'] ?? '');
+            $title = 'Колонка ' . ($letter ?: $k) . ($v['HEADER'] ? ': ' . $v['HEADER'] : '');
+            $macros['#COL_' . strtoupper(preg_replace('/[^a-z0-9]/i', '', $k)) . '#'] =
+                $title . ' — начальное значение';
+            $macros['#COL_PROCESSED_' . strtoupper(preg_replace('/[^a-z0-9]/i', '', $k)) . '#'] =
+                $title . ' — обработанное значение';
+        }
+        // событие D7: сторонние модули добавляют свои макросы
+        $event = new \Bitrix\Main\Event('awz.allxls', 'onAwzAllxlsGetMacros', [
+            'macros' => $macros,
+            'columns' => $columns,
+            'groups' => [],
+        ]);
+        $event->send();
+        foreach ($event->getResults() as $result) {
+            if ($result->getType() === \Bitrix\Main\EventResult::SUCCESS) {
+                $params = $result->getParameters();
+                if (isset($params['macros']) && is_array($params['macros'])) {
+                    $macros = $params['macros'] + $macros;
+                }
+            }
+        }
+        return $macros;
     }
 
     /**
@@ -596,6 +890,7 @@ class Pexport extends \Bitrix\Main\Engine\Controller {
         if ($profile === null) return null;
 
         $settings = $profile['SETTINGS'] ?? null;
+        if (!is_array($settings)) $settings = [];
         // ключи листов (SHEET1/SHEET2/...) приводим к числовым индексам 0..N-1
         $sheets = array_values(is_array($settings['EXPORT_SHEETS'] ?? null) ? $settings['EXPORT_SHEETS'] : []);
         $iblockId = (int)($settings['IBLOCK_ID'] ?? 0);
@@ -606,12 +901,17 @@ class Pexport extends \Bitrix\Main\Engine\Controller {
             ));
             return null;
         }
-        if ($iblockId <= 0 || !Loader::includeModule('iblock')) {
+        if ($iblockId <= 0) {
             $this->addError(new \Bitrix\Main\Error(
                 Loc::getMessage('AWZ_ALLXLS_API_PEXPORT_IBLOCK_EMPTY'), 'IBLOCK_EMPTY'
             ));
             return null;
         }
+
+        // сервис-источник экспорта (DEST_TYPE, подмена через событие) и
+        // итоговый фильтр выборки записей (JSON-фильтр шага 2 + событие)
+        $service = $this->resolveService($settings);
+        $exportFilter = $this->buildExportFilter($id, $settings);
 
         $scriptLimit = $maxExecutionTime > 0 ? $maxExecutionTime : ($hitTimeLimit + 10);
         if (function_exists('set_time_limit')) @set_time_limit($scriptLimit);
@@ -639,18 +939,33 @@ class Pexport extends \Bitrix\Main\Engine\Controller {
         $this->processStats = is_array($state['STATS'] ?? null) ? $state['STATS'] : [];
         $this->processErrors = is_array($state['ERRORS'] ?? null) ? $state['ERRORS'] : [];
 
-        // путь к файлу выгрузки — из настроек профиля (этап 2), по умолчанию profile_<id>.xlsx
+        // путь к файлу выгрузки — из настроек профиля (этап 2), по умолчанию profile_<id>.xlsx.
+        // Выгрузка идет во временный файл /upload/tmp/awz.allxls/export/ и копируется
+        // по финальному пути при завершении (DONE) — промежуточное состояние файла недоступно
         $relDir = '/upload/awz.allxls/export/';
         $absDir = \Bitrix\Main\Application::getDocumentRoot().$relDir;
         if (!is_dir($absDir)) @mkdir($absDir, BX_DIR_PERMISSIONS ?? 0755, true);
-        $relPath = (string)($settings['FILE_PATH'] ?? '');
-        if ($relPath === '' || strpos($relPath, '..') !== false) {
-            $relPath = $relDir.'profile_'.$id.'.xlsx';
+        // формат выгрузки: сначала EXPORT_FILE_EXT (для json имя файла не задается),
+        // затем по расширению FILE_PATH, по умолчанию xlsx
+        $fileExt = strtolower((string)($settings['EXPORT_FILE_EXT'] ?? ''));
+        if ($fileExt === '') {
+            $fileExt = strtolower(pathinfo((string)($settings['FILE_PATH'] ?? ''), PATHINFO_EXTENSION));
         }
+        if (!in_array($fileExt, ['csv', 'xlsx', 'json'], true)) $fileExt = 'xlsx';
+        $finalPath = (string)($settings['FILE_PATH'] ?? '');
+        if ($finalPath === '' || strpos($finalPath, '..') !== false) {
+            $finalPath = $relDir.'profile_'.$id.'.'.$fileExt;
+        }
+        $tmpDir = '/upload/tmp/awz.allxls/export/';
+        $tmpAbsDir = \Bitrix\Main\Application::getDocumentRoot().$tmpDir;
+        if (!is_dir($tmpAbsDir)) @mkdir($tmpAbsDir, BX_DIR_PERMISSIONS ?? 0755, true);
+        $tmpExt = $fileExt;
+        $relPath = $tmpDir.'profile_'.$id.'.'.$tmpExt;
         $absPath = \Bitrix\Main\Application::getDocumentRoot().$relPath;
-        $isCsv = strtolower(pathinfo($absPath, PATHINFO_EXTENSION)) === 'csv';
+        $isCsv = $fileExt === 'csv';
+        $isJson = $fileExt === 'json';
         if ($isCsv) {
-            // CSV: только один лист
+            // CSV — только один лист
             $sheets = array_slice($sheets, 0, 1);
             $sheetIdx = 0;
         }
@@ -660,26 +975,55 @@ class Pexport extends \Bitrix\Main\Engine\Controller {
         }
 
         try {
-            // открываем книгу: существующую или новую (листы по конфигу)
-            if (file_exists($absPath)) {
-                $spreadsheet = IOFactory::load($absPath);
-            } else {
-                $spreadsheet = new Spreadsheet();
-                $spreadsheet->removeSheetByIndex(0);
-                foreach ($sheets as $sheetCfg) {
-                    $sheet = new \PhpOffice\PhpSpreadsheet\Worksheet\Worksheet(
-                        $spreadsheet, (string)($sheetCfg['NAME'] ?? 'SHEET')
-                    );
-                    $spreadsheet->addSheet($sheet);
+            // JSON: потоковая дозапись построчно (без пересборки файла).
+            // С шаблоном EXPORT_JSON_TEMPLATE: каждая обработанная строка идет
+            // в свой part-файл (tmp), при завершении собирается итоговый JSON —
+            // литералы шаблона + содержимое part-файлов на месте макросов
+            // #<ИМЯ ЛИСТА># (без шаблона — массив объектов первого листа)
+            $jsonHandle = null;
+            $jsonPartPath = '';
+            $jsonTemplateRaw = $isJson ? trim((string)($settings['EXPORT_JSON_TEMPLATE'] ?? '')) : '';
+            $jsonTemplateMode = $isJson && $jsonTemplateRaw !== '';
+            // кеш ключей объектов JSON (по колонкам текущего листа)
+            $this->jsonKeys = [];
+            $this->jsonKeysUsed = [];
+            // макросы шаблона: ИМЯ ЛИСТА (верхний регистр) => индекс листа
+            $jsonSheetKeys = [];
+            foreach ($sheets as $i => $sheetCfg) {
+                $sheetName = strtoupper(trim((string)($sheetCfg['NAME'] ?? ('SHEET'.($i + 1)))));
+                if ($sheetName === '') $sheetName = 'SHEET'.($i + 1);
+                $jsonSheetKeys[$sheetName] = $i;
+            }
+            if ($jsonTemplateMode && $reset) {
+                // сброс: удаляем part-файлы листов
+                foreach (array_keys($jsonSheetKeys) as $partIdx) {
+                    @unlink(\Bitrix\Main\Application::getDocumentRoot()
+                        .$tmpDir.'profile_'.$id.'_s'.$partIdx.'.json');
                 }
-                // строка заголовков из имен колонок (только активные)
-                foreach ($sheets as $i => $sheetCfg) {
-                    $ws = $spreadsheet->getSheet($i);
-                    $col = 1;
-                    foreach ((array)($sheetCfg['COLUMNS'] ?? []) as $column) {
-                        if (is_array($column) && ($column['ACTIVE'] ?? 'Y') === 'N') continue;
-                        $ws->setCellValue(Coordinate::stringFromColumnIndex($col).'1', (string)($column['NAME'] ?? ''));
-                        $col++;
+            }
+
+            if (!$isJson) {
+                // открываем книгу: существующую или новую (листы по конфигу)
+                if (file_exists($absPath)) {
+                    $spreadsheet = IOFactory::load($absPath);
+                } else {
+                    $spreadsheet = new Spreadsheet();
+                    $spreadsheet->removeSheetByIndex(0);
+                    foreach ($sheets as $sheetCfg) {
+                        $sheet = new \PhpOffice\PhpSpreadsheet\Worksheet\Worksheet(
+                            $spreadsheet, (string)($sheetCfg['NAME'] ?? 'SHEET')
+                        );
+                        $spreadsheet->addSheet($sheet);
+                    }
+                    // строка заголовков из имен колонок (только активные)
+                    foreach ($sheets as $i => $sheetCfg) {
+                        $ws = $spreadsheet->getSheet($i);
+                        $col = 1;
+                        foreach ((array)($sheetCfg['COLUMNS'] ?? []) as $column) {
+                            if (is_array($column) && ($column['ACTIVE'] ?? 'Y') === 'N') continue;
+                            $ws->setCellValue(Coordinate::stringFromColumnIndex($col).'1', (string)($column['NAME'] ?? ''));
+                            $col++;
+                        }
                     }
                 }
             }
@@ -693,7 +1037,53 @@ class Pexport extends \Bitrix\Main\Engine\Controller {
                     break;
                 }
                 $sheetCfg = $sheets[$sheetIdx];
-                $ws = $spreadsheet->getSheet($sheetIdx);
+                $ws = $isJson ? null : $spreadsheet->getSheet($sheetIdx);
+
+                if ($isJson) {
+                    // ключи объектов JSON пересчитываются на каждый лист
+                    $this->jsonKeys = [];
+                    $this->jsonKeysUsed = [];
+                    // открытие/продолжение файла поточной записи (JSON)
+                    $jsonPartPath = $jsonTemplateMode
+                        ? (\Bitrix\Main\Application::getDocumentRoot().$tmpDir.'profile_'.$id.'_s'.$sheetIdx.'.json')
+                        : $absPath;
+                    $jsonHandle = @fopen($jsonPartPath, 'c+');
+                    if (!$jsonHandle) {
+                        throw new \Bitrix\Main\IO\IoException('Не удалось открыть файл выгрузки JSON: '.$jsonPartPath);
+                    }
+                    @flock($jsonHandle, LOCK_EX);
+                    $size = filesize($jsonPartPath);
+                    if ($size === false || $size < 2) {
+                        ftruncate($jsonHandle, 0);
+                        fseek($jsonHandle, 0);
+                        fwrite($jsonHandle, "[\n");
+                    } else {
+                        // существующий файл: курсор записи — в конец;
+                        // ремонт хвоста после обрыва хита (незавершенная строка)
+                        fseek($jsonHandle, 0, SEEK_END);
+                        $size = (int)fstat($jsonHandle)['size'];
+                        $scan = min(65536, $size - 2);
+                        if ($scan > 0) {
+                            fseek($jsonHandle, $size - $scan);
+                            $tail = fread($jsonHandle, $scan);
+                            $nl = strrpos($tail, "\n");
+                            if ($nl === false) {
+                                // целостный хвост не найден — начинаем заново
+                                ftruncate($jsonHandle, 0);
+                                fseek($jsonHandle, 0);
+                                fwrite($jsonHandle, "[\n");
+                            } else {
+                                $keep = $size - $scan + $nl + 1;
+                                if ($keep < $size) {
+                                    ftruncate($jsonHandle, $keep);
+                                }
+                                fseek($jsonHandle, 0, SEEK_END);
+                            }
+                        } else {
+                            fseek($jsonHandle, 0, SEEK_END);
+                        }
+                    }
+                }
 
                 // активные колонки листа (ACTIVE != N)
                 $activeColumns = [];
@@ -702,7 +1092,7 @@ class Pexport extends \Bitrix\Main\Engine\Controller {
                     $activeColumns[] = $column;
                 }
 
-                // выборка порции элементов инфоблока (по возрастанию ID, после LAST_ID)
+                // выборка порции записей источника (по возрастанию ID, после LAST_ID)
                 $select = ['ID'];
                 foreach ($activeColumns as $column) {
                     $field = (string)($column['FIELD'] ?? '');
@@ -710,69 +1100,140 @@ class Pexport extends \Bitrix\Main\Engine\Controller {
                     $select[] = $field;
                 }
 
-                $rows = [];
-                $res = \CIBlockElement::GetList(
-                    ['ID' => 'ASC'],
-                    ['IBLOCK_ID' => $iblockId, '>ID' => $lastId],
-                    false,
-                    ['nTopCount' => $batchSize],
-                    $select
+                $rows = $service->getElements(
+                    (string)$iblockId,
+                    $lastId,
+                    $batchSize,
+                    $select,
+                    $exportFilter
                 );
-                while ($ob = $res->GetNextElement()) {
-                    $rows[] = $ob->GetFields();
-                }
 
                 if (!$rows) {
-                    // лист закончился — следующий
+                    // лист закончился: финализируем его JSON-файл и идем дальше
+                    if ($isJson && is_resource($jsonHandle)) {
+                        $this->jsonFinalizePart($jsonHandle);
+                        $jsonHandle = null;
+                    }
                     $sheetIdx++;
                     $lastId = 0;
                     continue;
                 }
 
-                $rowNum = $ws->getHighestRow();
+                // для JSON строка-заголовок отсутствует (объекты), нумерация
+                // строк книги нужна только xlsx/csv
+                $rowNum = $isJson ? 0 : $ws->getHighestRow();
                 if ($rowNum < 1) $rowNum = 1;
                 foreach ($rows as $fields) {
-                    // обработка значений колонок + правила (пропуск строки)
+                    $recordId = $service->getRecordId(is_array($fields) ? $fields : []);
+                    // сырые значения всех активных колонок строки (источник
+                    // условий SOURCE — начальные значения колонок, как в импорте)
+                    $rawValues = [];
+                    foreach ($activeColumns as $column) {
+                        $field = (string)($column['FIELD'] ?? '');
+                        if ($field === '') continue;
+                        $rawValues[$field] = $service->extractFieldValue(
+                            $fields,
+                            $field,
+                            (string)($column['DELIMETER'] ?? ', ')
+                        );
+                    }
+                    // конфиг колонок для макросов #COL_*# (формат импорта)
+                    $columnsCfg = [];
+                    foreach ($activeColumns as $column) {
+                        $field = (string)($column['FIELD'] ?? '');
+                        if ($field === '' || isset($columnsCfg[$field])) continue;
+                        $columnsCfg[$field] = [
+                            'LETTER' => '',
+                            'HEADER' => (string)($column['NAME'] ?? ''),
+                            'ALIAS' => '',
+                        ];
+                    }
+
+                    // обработка значений колонок (TRIM/CASE + правила MapRules)
                     $rowValues = [];
                     $skipRow = false;
                     $debugRow = null;
                     if ($stepByStep) {
                         $debugRow = [
-                            'element_id' => (int)($fields['ID'] ?? 0),
+                            'element_id' => (int)$recordId,
                             'columns' => [],
                             'skip' => false,
                             'skip_reason' => '',
                         ];
+                        // печать полей записи: сырые значения всех выбираемых полей
+                        // (как debug.raw в импорте — значения колонок из файла)
+                        $debugRow['raw'] = [];
+                        foreach ($select as $fieldCode) {
+                            $debugRow['raw'][] = [
+                                'field' => (string)$fieldCode,
+                                'value' => $service->extractFieldValue($fields, (string)$fieldCode, ', '),
+                            ];
+                        }
                     }
+                    // опции контекста правил (колонки для макросов #COL_*# и т.д.)
+                    $options = [
+                        'columns' => $columnsCfg,
+                        'iblock_id' => $iblockId,
+                    ];
+                    // накопитель сработавших правил строки (как в импорте)
+                    $rowApplied = [];
                     foreach ($activeColumns as $column) {
-                        $rawValue = $this->extractFieldValue(
-                            $fields,
-                            (string)($column['FIELD'] ?? ''),
-                            (string)($column['DELIMETER'] ?? ', ')
-                        );
+                        $field = (string)($column['FIELD'] ?? '');
+                        $rawValue = $rawValues[$field] ?? '';
                         $value = $this->applyColumnValue($rawValue, is_array($column) ? $column : []);
+
+                        // правила обработки колонки: transform (преобразование
+                        // значения) + skip (пропуск строки) — движок импорта
+                        $rules = self::normalizeExportRules((array)($column['RULES'] ?? []));
+                        if ($rules) {
+                            MapRules::$lastSkip = false;
+                            MapRules::$lastDelete = false;
+                            MapRules::$lastUnset = false;
+                            MapRules::$lastApplied = [];
+                            $options['from'] = $field;
+                            $result = MapRules::processRules($rules, $value, $rawValues, $options);
+                            $value = $result['value'];
+                            // сработавшие правила колонки — в общий список строки
+                            foreach (MapRules::$lastApplied as $applied) {
+                                $applied['field'] = (string)($column['NAME'] ?? $field);
+                                $rowApplied[] = $applied;
+                            }
+                            if (!empty($result['skip'])) {
+                                $skipRow = true;
+                                if ($stepByStep && is_array($debugRow)) {
+                                    $debugRow['skip'] = true;
+                                    $debugRow['skip_rule'] = MapRules::$lastSkipRule;
+                                    $debugRow['skip_value'] = MapRules::$lastSkipValue;
+                                    $debugRow['skip_reason'] = 'Правило ('
+                                        .(string)(MapRules::$lastSkipRule['TYPE'] ?? 'skip')
+                                        .') в колонке «'.(string)($column['NAME'] ?? $field).'»'
+                                        .' (значение: '.(string)(MapRules::$lastSkipValue ?? $value).')';
+                                }
+                                break;
+                            }
+                        }
+
                         if ($stepByStep && is_array($debugRow)) {
                             $debugRow['columns'][] = [
                                 'name' => (string)($column['NAME'] ?? ''),
-                                'field' => (string)($column['FIELD'] ?? ''),
+                                'field' => $field,
                                 'raw' => $rawValue,
                                 'value' => $value,
                             ];
-                        }
-                        if ($this->columnRuleSkipsRow($value, is_array($column) ? $column : [])) {
-                            $skipRow = true;
-                            if ($stepByStep && is_array($debugRow)) {
-                                $debugRow['skip'] = true;
-                                $debugRow['skip_reason'] = 'Правило пропуска строки в колонке «'
-                                    .(string)($column['NAME'] ?? '').'» (значение: '.$value.')';
-                            }
-                            break;
+                            // значения макросов для отладки правил (как в импорте)
+                            $options['from'] = $field;
+                            $debugRow['macros'] = MapRules::getMacrosValues(
+                                $columnsCfg, $field, $value, $rawValues, $options
+                            );
                         }
                         $rowValues[] = $value;
                     }
+                    if ($stepByStep && is_array($debugRow)) {
+                        $debugRow['rules'] = $rowApplied;
+                    }
                     if ($skipRow) {
                         $rowNum--; // строка не используется
-                        $lastId = (int)($fields['ID'] ?? $lastId);
+                        if ((int)$recordId > 0) $lastId = (int)$recordId;
                         if ($stepByStep) {
                             if (is_array($debugRow)) {
                                 // последняя колонка дала пропуск — убираем её значения из дебага
@@ -784,13 +1245,46 @@ class Pexport extends \Bitrix\Main\Engine\Controller {
                         continue;
                     }
 
-                    $rowNum++;
-                    $col = 1;
-                    foreach ($rowValues as $value) {
-                        $ws->setCellValue(Coordinate::stringFromColumnIndex($col).$rowNum, $value);
-                        $col++;
+                    if ($isJson) {
+                        // потоковая дозапись строки JSON: компактный объект
+                        // (дозапись в конец файла, строка заканчивается запятой —
+                        // закрывающая скобка дописывается на финализации)
+                        $item = [];
+                        $idx = 0;
+                        // ключи объектов — валидные идентификаторы: транслит
+                        // названия колонки (кириллица → латиница), только
+                        // [a-z0-9_], тире/пробелы → подчеркивания; дубликаты —
+                        // с суффиксом _2, _3...
+                        foreach ($activeColumns as $column) {
+                            $name = trim((string)($column['NAME'] ?? ''));
+                            if ($name === '') $name = 'col'.($idx + 1);
+                            $key = $this->jsonKeys[$idx] ?? null;
+                            if ($key === null) {
+                                $key = ProfilesHelper::transliterate($name);
+                                $key = strtolower(preg_replace('/[^a-z0-9]+/i', '_', $key));
+                                $key = trim($key, '_');
+                                if ($key === '') $key = 'col'.($idx + 1);
+                                if (isset($this->jsonKeysUsed[$key])) {
+                                    $n = 2;
+                                    while (isset($this->jsonKeysUsed[$key.'_'.$n])) $n++;
+                                    $key .= '_'.$n;
+                                }
+                                $this->jsonKeysUsed[$key] = true;
+                                $this->jsonKeys[$idx] = $key;
+                            }
+                            $item[$key] = $rowValues[$idx] ?? '';
+                            $idx++;
+                        }
+                        fwrite($jsonHandle, json_encode($item, JSON_UNESCAPED_UNICODE | JSON_UNESCAPED_SLASHES).",\n");
+                    } else {
+                        $rowNum++;
+                        $col = 1;
+                        foreach ($rowValues as $value) {
+                            $ws->setCellValue(Coordinate::stringFromColumnIndex($col).$rowNum, $value);
+                            $col++;
+                        }
                     }
-                    $lastId = (int)($fields['ID'] ?? 0);
+                    if ((int)$recordId > 0) $lastId = (int)$recordId;
                     $processed++;
                     $this->processStats['Выгружено строк'] = $processed;
                     $this->processStats['Текущий лист'] = (string)($sheetCfg['NAME'] ?? ('SHEET'.($sheetIdx + 1)));
@@ -810,17 +1304,65 @@ class Pexport extends \Bitrix\Main\Engine\Controller {
             }
 
             // сохраняем файл книги (CSV — с настроенным разделителем)
-            if ($isCsv) {
-                $writer = IOFactory::createWriter($spreadsheet, 'Csv');
-                if (method_exists($writer, 'setDelimiter')) {
-                    $writer->setDelimiter((string)($settings['CSV_DELIMITER'] ?? ',') ?: ',');
+            if ($isJson) {
+                // финализация: закрываем последний part-файл
+                if (is_resource($jsonHandle)) {
+                    $this->jsonFinalizePart($jsonHandle);
+                    $jsonHandle = null;
+                }
+                if ($done && $jsonTemplateMode) {
+                    // сборка итогового JSON: литералы шаблона + part-файлы
+                    // на месте макросов #<ИМЯ ЛИСТА>#
+                    $docRoot = \Bitrix\Main\Application::getDocumentRoot();
+                    $parts = [];
+                    foreach ($jsonSheetKeys as $key => $partIdx) {
+                        $parts[$key] = $docRoot.$tmpDir.'profile_'.$id.'_s'.$partIdx.'.json';
+                    }
+                    $parts = $this->jsonFinalizeParts($parts);
+                    $out = @fopen($absPath, 'w');
+                    if (!$out) {
+                        throw new \Bitrix\Main\IO\IoException('Не удалось открыть файл выгрузки JSON: '.$relPath);
+                    }
+                    $segments = preg_split('/#([A-Za-z0-9_\-]+)#/', $jsonTemplateRaw, -1, PREG_SPLIT_DELIM_CAPTURE);
+                    for ($i = 0; $i < count($segments); $i++) {
+                        if (($i % 2) === 0) {
+                            fwrite($out, $segments[$i]);
+                            continue;
+                        }
+                        $key = strtoupper(trim((string)$segments[$i]));
+                        if (isset($parts[$key]) && is_file($parts[$key])) {
+                            // потоковое копирование содержимого part-файла
+                            $in = @fopen($parts[$key], 'r');
+                            if ($in) {
+                                while (!feof($in)) {
+                                    fwrite($out, (string)fread($in, 262144));
+                                }
+                                fclose($in);
+                            }
+                        } else {
+                            fwrite($out, '[]');
+                        }
+                    }
+                    fflush($out);
+                    fclose($out);
+                    // part-файлы больше не нужны
+                    foreach ($parts as $partFile) {
+                        if (is_file($partFile)) @unlink($partFile);
+                    }
                 }
             } else {
-                $writer = IOFactory::createWriter($spreadsheet, 'Xlsx');
+                if ($isCsv) {
+                    $writer = IOFactory::createWriter($spreadsheet, 'Csv');
+                    if (method_exists($writer, 'setDelimiter')) {
+                        $writer->setDelimiter((string)($settings['CSV_DELIMITER'] ?? ',') ?: ',');
+                    }
+                } else {
+                    $writer = IOFactory::createWriter($spreadsheet, 'Xlsx');
+                }
+                $writer->save($absPath);
+                $spreadsheet->disconnectWorksheets();
+                unset($spreadsheet);
             }
-            $writer->save($absPath);
-            $spreadsheet->disconnectWorksheets();
-            unset($spreadsheet);
 
             // конвертация CSV-выгрузки в выбранную кодировку (utf8 | cp1251 | other)
             if ($isCsv) {
@@ -857,6 +1399,18 @@ class Pexport extends \Bitrix\Main\Engine\Controller {
             $this->processStats['RPS: последний хит'] =
                 ($elapsed > 0 && $rowsInHit > 0) ? round($rowsInHit / $elapsed, 1) : 0;
 
+            // завершение: копируем временный файл по финальному пути
+            $stateFile = $relPath;
+            if ($done && is_file($absPath)) {
+                $finalAbs = \Bitrix\Main\Application::getDocumentRoot().$finalPath;
+                $finalDir = dirname($finalAbs);
+                if (!is_dir($finalDir)) @mkdir($finalDir, BX_DIR_PERMISSIONS ?? 0755, true);
+                if (@copy($absPath, $finalAbs)) {
+                    @unlink($absPath);
+                    $stateFile = $finalPath;
+                }
+            }
+
             // сохраняем состояние
             $state = [
                 'SHEET' => $done ? 0 : $sheetIdx,
@@ -866,7 +1420,7 @@ class Pexport extends \Bitrix\Main\Engine\Controller {
                 // «живой» дамп для отображения прогресса cron-запуска в UI
                 'STATS_VIEW' => $this->processStats,
                 'ERRORS' => $this->processErrors,
-                'FILE' => $relPath,
+                'FILE' => $stateFile,
                 'DONE' => $done ? 'Y' : 'N',
                 'UPDATED' => date('Y-m-d H:i:s'),
                 'TOTAL_TIME' => $totalTime,
@@ -889,7 +1443,7 @@ class Pexport extends \Bitrix\Main\Engine\Controller {
                 'percent' => $done ? 100 : 0,
                 'errors' => $this->processErrors,
                 'stats' => $this->processStats,
-                'file_url' => $this->fileUrl($relPath),
+                'file_url' => $this->fileUrl($stateFile),
                 'step_by_step' => $stepByStep,
                 // подробная информация по выгруженному элементу (режим по одному)
                 'debug' => (is_array($debugRow ?? null)) ? $debugRow : null,
@@ -913,25 +1467,50 @@ class Pexport extends \Bitrix\Main\Engine\Controller {
     }
 
     /**
-     * Значение поля элемента для выгрузки.
-     * Базовые поля — напрямую, свойства — PROPERTY_<CODE>_VALUE (множественные склеиваются).
+     * Финализация поточного JSON-файла: снимаем висячую запятую последнего
+     * элемента и дописываем закрывающую скобку массива (пустой файл → []).
      */
-    protected function extractFieldValue(array $fields, string $field, string $delimiter = ', '): string
+    protected function jsonFinalizePart($handle): void
     {
-        if ($field === '') return '';
-        $delimiter = $delimiter !== '' ? $delimiter : ', ';
-        if (strpos($field, 'PROPERTY_') === 0) {
-            $value = $fields[$field.'_VALUE'] ?? ($fields[$field] ?? '');
-            if (is_array($value)) {
-                $value = implode($delimiter, array_map('strval', $value));
+        if (!is_resource($handle)) return;
+        $size = (int)fstat($handle)['size'];
+        if ($size > 2) {
+            fseek($handle, $size - 2);
+            $tail = fread($handle, 2);
+            if ($tail === ",\n") {
+                ftruncate($handle, $size - 2);
             }
-            return (string)$value;
+            fseek($handle, 0, SEEK_END);
+            fwrite($handle, "\n]");
+        } else {
+            ftruncate($handle, 0);
+            fwrite($handle, "[]");
         }
-        $value = $fields[$field] ?? '';
-        if (is_array($value)) {
-            $value = implode($delimiter, array_map('strval', $value));
+        fflush($handle);
+        @flock($handle, LOCK_UN);
+        fclose($handle);
+    }
+
+    /**
+     * Финализация part-файлов листов (каждый — самостоятельный JSON-массив):
+     * файл без закрывающей скобки (записи закончились запятой после обрыва
+     * хита) доводится до валидного массива.
+     *
+     * @param array $parts [ключ => путь к part-файлу]
+     * @return array
+     */
+    protected function jsonFinalizeParts(array $parts): array
+    {
+        foreach ($parts as $path) {
+            if (!is_file($path)) continue;
+            $size = (int)@filesize($path);
+            if ($size >= 3 && substr((string)@file_get_contents($path, false, null, $size - 3, 3), 0, 1) !== ']') {
+                $handle = @fopen($path, 'c+');
+                if (!$handle) continue;
+                $this->jsonFinalizePart($handle);
+            }
         }
-        return (string)$value;
+        return $parts;
     }
 
     /**
@@ -961,7 +1540,57 @@ class Pexport extends \Bitrix\Main\Engine\Controller {
     }
 
     /**
-     * Нормализация дерева условий правил экспорта.
+     * Нормализация правил колонки в формате импорта (MapRules).
+     *
+     * Поддерживаются типы transform и skip (delete/unset/entity экспорту
+     * не применимы и отбрасываются). Старые форматы конвертируются:
+     *  - {ACTION: skip_row} → skip с условием «пустое значение»;
+     *  - условие прямо в правиле (OP/VALUE/VALUE2 без CONDITIONS) —
+     *    заворачивается в CONDITIONS.
+     *
+     * @param array $rules массив правил
+     * @return array
+     */
+    protected static function normalizeExportRules(array $rules): array
+    {
+        $result = [];
+        foreach ($rules as $rule) {
+            if (!is_array($rule)) continue;
+            $type = (string)($rule['TYPE'] ?? '');
+            // старый формат: {ACTION: skip_row, CONDITION: empty}
+            if ($type === '' && (string)($rule['ACTION'] ?? '') === 'skip_row') {
+                $result[] = [
+                    'TYPE' => 'skip',
+                    'AGG' => 'AND',
+                    'CONDITIONS' => [['OP' => 'empty', 'VALUE' => '', 'VALUE2' => '']],
+                ];
+                continue;
+            }
+            if ($type !== 'transform' && $type !== 'skip') continue;
+
+            // обратная совместимость: условие прямо в правиле (без CONDITIONS)
+            $conditions = (isset($rule['CONDITIONS']) && is_array($rule['CONDITIONS']))
+                ? $rule['CONDITIONS']
+                : [['OP' => (string)($rule['OP'] ?? 'eq'), 'VALUE' => (string)($rule['VALUE'] ?? ''), 'VALUE2' => (string)($rule['VALUE2'] ?? '')]];
+
+            $entry = [
+                'TYPE' => $type,
+                'AGG' => in_array(($rule['AGG'] ?? 'AND'), ['AND', 'OR', 'AND_NOT', 'OR_NOT'], true) ? $rule['AGG'] : 'AND',
+                'CONDITIONS' => self::normalizeExportConditions($conditions),
+            ];
+            if ($type === 'transform') {
+                $entry['ACTION'] = (string)($rule['ACTION'] ?? 'replace');
+                $entry['ACTION_VALUE'] = (string)($rule['ACTION_VALUE'] ?? '');
+                $entry['ACTION_VALUE2'] = (string)($rule['ACTION_VALUE2'] ?? '');
+            }
+            $result[] = $entry;
+        }
+        return $result;
+    }
+
+    /**
+     * Нормализация дерева условий правил экспорта (формат импорта,
+     * лист-условие может задавать SOURCE — колонку/макрос источника).
      */
     protected static function normalizeExportConditions(array $conditions): array
     {
@@ -976,118 +1605,16 @@ class Pexport extends \Bitrix\Main\Engine\Controller {
                 ];
                 continue;
             }
-            $result[] = [
+            $entry = [
+                'SOURCE' => (string)($cond['SOURCE'] ?? ''),
                 'OP' => (string)($cond['OP'] ?? 'eq'),
                 'VALUE' => (string)($cond['VALUE'] ?? ''),
                 'VALUE2' => (string)($cond['VALUE2'] ?? ''),
             ];
+            if ($entry['SOURCE'] === '') unset($entry['SOURCE']);
+            $result[] = $entry;
         }
         return $result;
-    }
-
-    /**
-     * Проверка правил колонки: нужно ли пропустить строку.
-     * Поддерживается одно действие: skip (пропуск строки) с деревом условий
-     * по значению колонки (формат правил как в импорте).
-     */
-    protected function columnRuleSkipsRow(string $value, array $column): bool
-    {
-        foreach ((array)($column['RULES'] ?? []) as $rule) {
-            if (!is_array($rule)) continue;
-            $type = (string)($rule['TYPE'] ?? '');
-            // обратная совместимость со старым форматом {ACTION: skip_row}
-            if ($type === '' && (string)($rule['ACTION'] ?? '') === 'skip_row') {
-                $condition = (string)($rule['CONDITION'] ?? 'empty');
-                if ($condition === 'empty' && trim($value) === '') return true;
-                continue;
-            }
-            if ($type !== 'skip') continue;
-
-            $agg = (string)($rule['AGG'] ?? 'AND');
-            $conditions = (array)($rule['CONDITIONS'] ?? []);
-            $matched = $this->evaluateExportConditions($value, $conditions, $agg);
-            if ($matched) return true;
-        }
-        return false;
-    }
-
-    /**
-     * Вычисление дерева условий правила по значению колонки.
-     *
-     * @param string $value значение колонки
-     * @param array $conditions дерево условий
-     * @param string $agg AND|OR|AND_NOT|OR_NOT
-     * @return bool
-     */
-    protected function evaluateExportConditions(string $value, array $conditions, string $agg = 'AND'): bool
-    {
-        $conditions = array_values(array_filter($conditions, 'is_array'));
-        if (!$conditions) return false;
-
-        $isOr = (strpos($agg, 'OR') === 0);
-        $not = substr($agg, -4) === '_NOT';
-
-        $results = [];
-        foreach ($conditions as $cond) {
-            if (isset($cond['CHILDREN']) && is_array($cond['CHILDREN'])) {
-                $childAgg = (string)($cond['AGG'] ?? 'AND');
-                $results[] = $this->evaluateExportConditions($value, $cond['CHILDREN'], $childAgg);
-            } else {
-                $results[] = $this->evaluateExportCondition($value, $cond);
-            }
-        }
-
-        $result = $isOr ? in_array(true, $results, true) : !in_array(false, $results, true);
-        return $not ? !$result : $result;
-    }
-
-    /**
-     * Вычисление одного условия (листа) по значению колонки.
-     */
-    protected function evaluateExportCondition(string $value, array $cond): bool
-    {
-        $op = (string)($cond['OP'] ?? 'eq');
-        $v = (string)($cond['VALUE'] ?? '');
-        $v2 = (string)($cond['VALUE2'] ?? '');
-
-        switch ($op) {
-            case 'empty':
-                return trim($value) === '';
-            case 'not_empty':
-                return trim($value) !== '';
-            case 'any':
-                return true;
-            case 'eq':
-                return $value === $v;
-            case 'ne':
-                return $value !== $v;
-            case 'gt':
-                return is_numeric($value) && is_numeric($v) && ($value > $v);
-            case 'lt':
-                return is_numeric($value) && is_numeric($v) && ($value < $v);
-            case 'ge':
-                return is_numeric($value) && is_numeric($v) && ($value >= $v);
-            case 'le':
-                return is_numeric($value) && is_numeric($v) && ($value <= $v);
-            case 'between':
-                return is_numeric($value) && is_numeric($v) && is_numeric($v2)
-                    && ($value >= $v && $value <= $v2);
-            case 'contains':
-                return $v !== '' && mb_stripos($value, $v) !== false;
-            case 'not_contains':
-                return $v === '' || mb_stripos($value, $v) === false;
-            case 'begins':
-                return $v !== '' && mb_stripos($value, $v) === 0;
-            case 'ends':
-                $len = mb_strlen($v);
-                return $len > 0 && mb_strripos($value, $v) === mb_strlen($value) - $len;
-            case 'regex':
-                return @preg_match($v, $value) === 1;
-            case 'not_regex':
-                return @preg_match($v, $value) !== 1;
-            default:
-                return false;
-        }
     }
 
     /**

@@ -26,6 +26,9 @@ return [
             'awz.allxls.iblock' => [
                 'className' => '\Awz\Allxls\Services\iblock',
             ],
+            'awz.allxls.iblockexport' => [
+                'className' => '\Awz\Allxls\Services\iblockexport',
+            ],
         ],
         'readonly' => true,
     ],

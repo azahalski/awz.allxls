@@ -169,7 +169,7 @@ if (\Bitrix\Main\Loader::includeModule('iblock')) {
                             <option value="<?=$extCode?>" <?=$fileExt===$extCode?'selected':''?>><?=$extTitle?></option>
                         <?php endforeach; ?>
                     </select>
-                    <div class="awz-allxls-row__desc"><?=Loc::getMessage('AWZ_ALLXLS_S_PROFILES_EDIT_FILE_EXT_DESC') ?: 'Для ссылок и FTP без расширения в пути укажите формат файла явно (например, ссылка отдает CSV, но адрес этого не показывает)'?></div>
+                    <div class="awz-allxls-row__desc"><?=Loc::getMessage('AWZ_ALLXLS_S_PROFILES_EDIT_FILE_EXT_DESC') ?: '«Авто» определяет формат по расширению пути. При необходимости укажите формат явно (например, ссылка отдает CSV, но адрес этого не показывает)'?></div>
                 </div>
             </div>
             <div class="awz-allxls-row">

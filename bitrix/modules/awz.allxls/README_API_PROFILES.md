@@ -465,6 +465,9 @@ ACTION_VALUE = '#COL_PROCESSED_COL2#_#COL_COL3#'
 | `systemSearchNew` | `Y\|N`, `Y` | `SYSTEM_SEARCH_NEW` | Индексировать новые элементы (`bUpdateSearch` в Add) |
 | `systemSearchUpdate` | `Y\|N`, `Y` | `SYSTEM_SEARCH_UPDATE` | Индексировать изменённые элементы (`bUpdateSearch` в Update) |
 | `systemResizePictures` | `Y\|N`, `N` | `SYSTEM_RESIZE_PICTURES` | Обработка изображений по настройкам инфоблока (`bResizePictures`) |
+| `systemIblockCache` | `Y\|N`, `N` | `SYSTEM_IBLOCK_CACHE` | Сброс кеша инфоблока по окончании импорта (тегированный + управляемый кеш по инфоблоку); опция выводится в отдельном блоке «Опции после завершения импорта», разметка — `Services\Base::getFinishOptionsHtml` |
+| `finishCleanMode` | `''\|deactivate\|delete`, `''` | `FINISH_CLEAN_MODE` | Очистка устаревших элементов после импорта (агентом `\Awz\Allxls\Services\iblock::finishCleanAgent(<id>)`, батчами по 200): элементы инфоблока с `TIMESTAMP_X` старше порога деактивируются или удаляются |
+| `finishCleanScope` | `profile\|section`, `profile` | `FINISH_CLEAN_SCOPE` | Охват очистки: порог = минимум `RUN_STARTED` среди завершенных профилей (текущий или всех профилей раздела с тем же инфоблоком) |
 | `systemUpdateOrder` | `fields_first\|props_first`, `fields_first` | `SYSTEM_UPDATE_ORDER` | Порядок обновления: сперва поля → потом свойства, или наоборот |
 | `stepByStep` | `Y\|N`, `N` | `STEP_BY_STEP` | Режим «импорт по одному элементу»: одна строка за запрос, следующий элемент — кнопка «Следующий элемент» на шаге 4; в ответе появляется блок `debug` |
 

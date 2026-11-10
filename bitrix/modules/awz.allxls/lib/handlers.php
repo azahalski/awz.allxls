@@ -26,6 +26,20 @@ class Handlers
     /** @var array<string,bool> ид инфоблоков (ENTITY_ID), для которых обработчики отключены в рамках текущего импорта */
     protected static array $disabledEntities = [];
 
+    /** @var bool|null кеш значения опции логирования обработчиков */
+    protected static ?bool $handlersLog = null;
+
+    /**
+     * Логирование обработчиков включено (опция модуля HANDLERS_LOG, по умолчанию N).
+     */
+    public static function isLoggingEnabled(): bool
+    {
+        if (self::$handlersLog === null) {
+            self::$handlersLog = \Bitrix\Main\Config\Option::get('awz.allxls', 'HANDLERS_LOG', 'N') === 'Y';
+        }
+        return self::$handlersLog;
+    }
+
     /**
      * Отключить обработчики для инфоблока на время текущего запроса.
      */

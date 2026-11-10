@@ -110,6 +110,15 @@ if (\Bitrix\Main\Loader::includeModule('iblock')) {
                 </div>
             </div>
             <div class="awz-allxls-row">
+                <div class="awz-allxls-row__label">JSON-фильтр элементов</div>
+                <div class="awz-allxls-row__ctrl">
+                    <textarea class="awz-allxls-textarea" name="EXPORT_FILTER" id="AWZ_ALLXLS_PROFILE_EXPORT_FILTER"
+                              placeholder='{"ACTIVE":"Y",">&nbsp;ID":100}' style="min-height:70px;font-family:Consolas,monospace;"
+                    ><?=htmlspecialcharsbx((string)($settings['EXPORT_FILTER'] ?? ''))?></textarea>
+                    <div class="awz-allxls-row__desc">Необязательный фильтр выборки элементов (JSON, формат фильтра GetList). Передается в сервис экспорта.</div>
+                </div>
+            </div>
+            <div class="awz-allxls-row" id="awz_allxls_profile_export_file_row">
                 <div class="awz-allxls-row__label"><?=Loc::getMessage('AWZ_ALLXLS_S_PROFILES_EDIT_EXPORT_FILE_NAME')?></div>
                 <div class="awz-allxls-row__ctrl">
                     <div style="display:flex;gap:8px;align-items:center;">
@@ -120,6 +129,7 @@ if (\Bitrix\Main\Loader::includeModule('iblock')) {
                                placeholder="<?=htmlspecialcharsbx(Loc::getMessage('AWZ_ALLXLS_S_PROFILES_EDIT_EXPORT_FILE_NAME_PH'))?>">
                         <button type="button" class="awz-allxls-btn awz-export-ext-btn<?=$fileExt==='csv'?' awz-allxls-btn--primary':' awz-allxls-btn--ghost'?>" data-ext="csv">.csv</button>
                         <button type="button" class="awz-allxls-btn awz-export-ext-btn<?=$fileExt==='xlsx'?' awz-allxls-btn--primary':' awz-allxls-btn--ghost'?>" data-ext="xlsx">.xlsx</button>
+                        <button type="button" class="awz-allxls-btn awz-export-ext-btn<?=$fileExt==='json'?' awz-allxls-btn--primary':' awz-allxls-btn--ghost'?>" data-ext="json">.json</button>
                     </div>
                     <div class="awz-allxls-row__desc"><?=Loc::getMessage('AWZ_ALLXLS_S_PROFILES_EDIT_EXPORT_FILE_NAME_DESC')?></div>
                 </div>

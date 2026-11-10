@@ -352,6 +352,9 @@
                 systemSearchNew: this.getCheckboxValue('awz_allxls_profile_process_sys_search_new') ? 'Y' : 'N',
                 systemSearchUpdate: this.getCheckboxValue('awz_allxls_profile_process_sys_search_update') ? 'Y' : 'N',
                 systemResizePictures: this.getCheckboxValue('awz_allxls_profile_process_sys_resize') ? 'Y' : 'N',
+                systemIblockCache: this.getCheckboxValue('awz_allxls_profile_process_sys_iblock_cache') ? 'Y' : 'N',
+                finishCleanMode: this.getOptionValue('awz_allxls_profile_process_finish_clean_mode') || '',
+                finishCleanScope: this.getOptionValue('awz_allxls_profile_process_finish_clean_scope') || 'profile',
                 systemUpdateOrder: this.getOptionValue('awz_allxls_profile_process_sys_update_order') || 'fields_first',
                 stepByStep: this.getCheckboxValue('awz_allxls_profile_process_step_by_step') ? 'Y' : 'N',
                 requestDelay: parseInt(this.getOptionValue(this.requestDelayId), 10) || 0

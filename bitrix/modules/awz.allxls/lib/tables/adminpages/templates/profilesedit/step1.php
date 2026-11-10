@@ -48,6 +48,11 @@ use Bitrix\Main\Localization\Loc;
                         <span class="awz-switch__slider"></span>
                     </label>
                     <div class="awz-allxls-row__desc"><?=Loc::getMessage('AWZ_ALLXLS_S_PROFILES_EDIT_ACTIVE_DESC')?></div>
+                    <?php if($profileId > 0 && ($profile['CRON_ACTIVE'] ?? 'N') === 'Y'): ?>
+                        <div style="margin-top:6px;padding:6px 10px;background:#fff8e1;border:1px solid #f0c33c;border-radius:4px;color:#7a5b00;font-size:12px;line-height:1.45;">
+                            <b>Внимание:</b> <?=Loc::getMessage('AWZ_ALLXLS_S_PROFILES_EDIT_ACTIVE_CRON_WARN')?>
+                        </div>
+                    <?php endif; ?>
                 </div>
             </div>
 

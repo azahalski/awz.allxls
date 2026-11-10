@@ -375,6 +375,9 @@ class ProfilesHelper {
                         'MEASURE' => 'Единица измерения',
                         'VAT_ID' => 'Ставка НДС',
                         'VAT_INCLUDED' => 'НДС включен в цену (Y/N)',
+                        'CAN_BUY_ZERO' => 'Разрешить покупку при нуле (Y/N)',
+                        'NEGATIVE_AMOUNT_TRACE' => 'Разрешить отрицательный остаток (Y/N)',
+                        'QUANTITY_TRACE' => 'Включен количественный учет (Y/N)',
                         'PURCHASING_PRICE' => 'Закупочная цена',
                         'PURCHASING_CURRENCY' => 'Валюта закупочной цены',
                     ] as $fieldCode => $fieldTitle) {
@@ -387,6 +390,29 @@ class ProfilesHelper {
                         'NAME' => Loc::getMessage('AWZ_ALLXLS_API_PROFILES_FIELDS_CATALOG') ?: 'Каталог',
                         'ITEMS' => $catalogItems,
                     ];
+
+                    // UF-поля товара (b_catalog_product), например UF_PRODUCT_GROUP
+                    $ufItems = [];
+                    $ufIterator = \CUserTypeEntity::GetList(
+                        [],
+                        ['ENTITY_ID' => 'CATALOG_PRODUCT']
+                    );
+                    while ($uf = $ufIterator->Fetch()) {
+                        if (!$uf['FIELD_NAME']) continue;
+                        $title = (string)($uf['EDIT_FORM_LABEL'] ?? '') !== ''
+                            ? $uf['EDIT_FORM_LABEL']
+                            : $uf['FIELD_NAME'];
+                        $ufItems[] = [
+                            'ID' => 'CATALOG_' . $uf['FIELD_NAME'],
+                            'NAME' => 'Каталог: ' . $title . ' [' . $uf['FIELD_NAME'] . ']',
+                        ];
+                    }
+                    if ($ufItems) {
+                        $groups[] = [
+                            'NAME' => Loc::getMessage('AWZ_ALLXLS_API_PROFILES_FIELDS_CATALOG_UF') ?: 'Каталог (UF-поля)',
+                            'ITEMS' => $ufItems,
+                        ];
+                    }
 
                     // остатки по конкретным складам (b_catalog_store_product):
                     // CATALOG_STORE_<ID> — целевой остаток на складе

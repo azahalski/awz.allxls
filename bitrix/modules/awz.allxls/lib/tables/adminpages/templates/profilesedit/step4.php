@@ -277,6 +277,54 @@ use Bitrix\Main\Localization\Loc;
     </div>
 
     <?php
+    // Опции после завершения импорта: список и разметка определяются
+    // сервисом-приемником (getFinishOptionsHtml), применяются один раз
+    // по окончании импорта (done/finishAction). Для экспорта — нет.
+    $finishOptionsHtml = '';
+    if (($profile['TYPE'] ?? 'import') !== 'export') {
+        try {
+            $destType = (string)($settings['DEST_TYPE'] ?? '');
+            if ($destType !== '') {
+                $finishService = \Bitrix\Main\DI\ServiceLocator::getInstance()->get('awz.allxls.'.$destType);
+                if (method_exists($finishService, 'getFinishOptionsHtml')) {
+                    $finishOptionsHtml = (string)$finishService->getFinishOptionsHtml($settings);
+                }
+            }
+        } catch (\Throwable $e) {
+            $finishOptionsHtml = '';
+        }
+    }
+    if ($finishOptionsHtml !== ''):
+    ?>
+    <div class="awz-allxls-card" id="awz_allxls_finish_card">
+        <div class="awz-allxls-card__head" id="awz_allxls_finish_card_head" style="cursor:pointer;user-select:none;"
+             title="<?=htmlspecialcharsbx(Loc::getMessage('AWZ_ALLXLS_S_PROFILES_EDIT_STEP4_FINISH_TITLE'))?>">
+            <div class="awz-allxls-card__title">
+                <span id="awz_allxls_finish_card_icon" style="display:inline-block;margin-right:6px;font-size:11px;transition:transform .2s;">▶</span>
+                <?=Loc::getMessage('AWZ_ALLXLS_S_PROFILES_EDIT_STEP4_FINISH_TITLE')?>
+            </div>
+            <div class="awz-allxls-card__sub"><?=Loc::getMessage('AWZ_ALLXLS_S_PROFILES_EDIT_STEP4_FINISH_SUB')?></div>
+        </div>
+        <div id="awz_allxls_finish_card_body" style="display:none;padding:20px;">
+            <?=$finishOptionsHtml?>
+        </div>
+    </div>
+    <script>
+    (function(){
+        var head = document.getElementById('awz_allxls_finish_card_head');
+        var body = document.getElementById('awz_allxls_finish_card_body');
+        var icon = document.getElementById('awz_allxls_finish_card_icon');
+        if (!head || !body) return;
+        head.addEventListener('click', function(){
+            var open = body.style.display !== 'none';
+            body.style.display = open ? 'none' : '';
+            if (icon) icon.textContent = open ? '▶' : '▼';
+        });
+    })();
+    </script>
+    <?php endif; ?>
+
+    <?php
     // Расписание запуска (cron). Данные хранятся в профиле (в БД).
     // Простой режим: готовые интервалы + время шага; экспертный режим —
     // crontab-выражение вручную.
@@ -704,8 +752,11 @@ use Bitrix\Main\Localization\Loc;
             &larr; <?=Loc::getMessage('AWZ_ALLXLS_S_PROFILES_EDIT_BTN_BACK')?>
         </a>
         <?php
-        // прерванный импорт: показываем кнопку продолжения
-        $process = is_array($settings['PROCESS'] ?? null) ? $settings['PROCESS'] : [];
+        // прерванный прогон (импорт или экспорт): показываем кнопку продолжения
+        $isExportProfile = (($profile['TYPE'] ?? 'import') === 'export');
+        $process = is_array($settings[($isExportProfile ? 'PROCESS_EXPORT' : 'PROCESS')] ?? null)
+            ? $settings[($isExportProfile ? 'PROCESS_EXPORT' : 'PROCESS')]
+            : [];
         $interrupted = ($process['DONE'] ?? 'Y') !== 'Y' && (int)($process['PROCESSED'] ?? 0) > 0;
         ?>
         <button type="button" class="awz-allxls-btn awz-allxls-btn--primary" id="awz_allxls_profile_process_start"

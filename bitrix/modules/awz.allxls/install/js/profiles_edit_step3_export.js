@@ -23,6 +23,23 @@
 
     var DEFAULT_ROWS = 5;
 
+    var ICON_GEAR = '<svg width="12" height="12" viewBox="0 0 24 24" fill="none" stroke="currentColor"'
+        + ' stroke-width="2" stroke-linecap="round" stroke-linejoin="round">'
+        + '<circle cx="12" cy="12" r="3"/>'
+        + '<path d="M19.4 15a1.65 1.65 0 0 0 .33 1.82l.06.06a2 2 0 0 1 0 2.83 2 2 0 0 1-2.83 0l-.06-.06'
+        + 'a1.65 1.65 0 0 0-1.82-.33 1.65 1.65 0 0 0-1 1.51V21a2 2 0 0 1-2 2 2 2 0 0 1-2-2v-.09A1.65 1.65 0 0 0 9 19.4'
+        + 'a1.65 1.65 0 0 0-1.82.33l-.06.06a2 2 0 0 1-2.83 0 2 2 0 0 1 0-2.83l.06-.06a1.65 1.65 0 0 0 .33-1.82'
+        + ' 1.65 1.65 0 0 0-1.51-1H3a2 2 0 0 1-2-2 2 2 0 0 1 2-2h.09A1.65 1.65 0 0 0 4.6 9a1.65 1.65 0 0 0-.33-1.82'
+        + 'l-.06-.06a2 2 0 0 1 0-2.83 2 2 0 0 1 2.83 0l.06.06a1.65 1.65 0 0 0 1.82.33H9a1.65 1.65 0 0 0 1-1.51V3'
+        + 'a2 2 0 0 1 2-2 2 2 0 0 1 2 2v.09a1.65 1.65 0 0 0 1 1.51 1.65 1.65 0 0 0 1.82-.33l.06-.06a2 2 0 0 1 2.83 0'
+        + ' 2 2 0 0 1 0 2.83l-.06.06a1.65 1.65 0 0 0-.33 1.82V9a1.65 1.65 0 0 0 1.51 1H21a2 2 0 0 1 2 2 2 2 0 0 1-2 2'
+        + 'h-.09a1.65 1.65 0 0 0-1.51 1z"/></svg>';
+    var ICON_TRASH = '<svg width="12" height="12" viewBox="0 0 24 24" fill="none" stroke="currentColor"'
+        + ' stroke-width="2" stroke-linecap="round" stroke-linejoin="round">'
+        + '<polyline points="3 6 5 6 21 6"/>'
+        + '<path d="M19 6v14a2 2 0 0 1-2 2H7a2 2 0 0 1-2-2V6m3 0V4a2 2 0 0 1 2-2h4a2 2 0 0 1 2 2v2"/>'
+        + '<line x1="10" y1="11" x2="10" y2="17"/><line x1="14" y1="11" x2="14" y2="17"/></svg>';
+
     var ExportSettings = function (options) {
         options = options || {};
         this.id = parseInt(options.id, 10) || 0;
@@ -203,7 +220,7 @@
                         + '<td style="padding:4px 10px;border:1px solid #e0e5ea;white-space:nowrap;">'
                         + '<span class="awz-export-col-drag" data-sheet="' + sheetIdx + '" data-col="' + colIdx
                         + '" title="' + BX.util.htmlspecialchars(BX.message('AWZ_ALLXLS_EXPORT_COL_MOVE'))
-                        + '" style="cursor:move;color:#999;padding:0 4px;">&#8942;&#8942;</span>'
+                        + '">&#8942;&#8942;</span>'
                         + '<input type="checkbox" class="awz-export-col-active" data-sheet="' + sheetIdx + '" data-col="' + colIdx
                         + '" title="' + BX.util.htmlspecialchars(BX.message('AWZ_ALLXLS_EXPORT_COL_ACTIVE'))
                         + '"' + (inactive ? '' : ' checked') + ' style="vertical-align:middle;"> '
@@ -214,13 +231,16 @@
                         + '<td style="padding:4px 10px;border:1px solid #e0e5ea;">'
                         + self.renderFieldSelect(sheetIdx, colIdx, col.FIELD) + '</td>'
                         + '<td style="padding:4px 10px;border:1px solid #e0e5ea;text-align:center;">'
-                        + '<button type="button" class="awz-export-col-gear' + (hasOpts ? ' awz-export-col-gear--active' : '')
+                        + '<button type="button" class="awz-export-icon awz-export-col-gear'
+                        + (hasOpts ? ' awz-export-icon--active' : '')
                         + '" data-sheet="' + sheetIdx + '" data-col="' + colIdx + '" title="'
                         + BX.util.htmlspecialchars(BX.message('AWZ_ALLXLS_EXPORT_COL_SETTINGS'))
-                        + '" style="cursor:pointer;border:none;background:none;font-size:16px;'
-                        + (hasOpts ? 'color:#2067b0;' : 'color:#999;') + '">&#9881;</button></td>'
+                        + '">' + ICON_GEAR + '</button></td>'
                         + '<td style="padding:4px 10px;border:1px solid #e0e5ea;text-align:center;">'
-                        + '<button type="button" class="awz-export-del-col" data-sheet="' + sheetIdx + '" data-col="' + colIdx + '">&times;</button></td>'
+                        + '<button type="button" class="awz-export-icon awz-export-icon--del awz-export-del-col"'
+                        + ' data-sheet="' + sheetIdx + '" data-col="' + colIdx + '" title="'
+                        + BX.util.htmlspecialchars(BX.message('AWZ_ALLXLS_EXPORT_DEL_COL'))
+                        + '">' + ICON_TRASH + '</button></td>'
                         + '</tr>';
                 });
 
@@ -228,11 +248,14 @@
             });
 
             if (!this.singleSheet) {
-                html += '<button type="button" class="awz-allxls-btn awz-allxls-btn--ghost" id="awz_export_add_sheet">'
+                html += '<button type="button" class="awz-allxls-btn awz-allxls-btn--ghost awz-export-add-sheet"'
+                    + ' id="awz_export_add_sheet">'
                     + BX.util.htmlspecialchars(BX.message('AWZ_ALLXLS_EXPORT_ADD_SHEET')) + '</button>';
             }
 
             container.innerHTML = html;
+            // обработчики (BX.bindDelegate на контейнере) регистрируются один раз —
+            // повторный bind накапливал обработчики и вызывал «глюки» добавления/удаления
             this.bindEvents();
         },
 
@@ -253,6 +276,11 @@
         },
 
         bindEvents: function () {
+            // одноразовая привязка: все обработчики — BX.bindDelegate на
+            // контейнере, они выживают после innerHTML в render();
+            // повторный вызов (каждый render) накапливал обработчики
+            if (this.eventsBound) return;
+            this.eventsBound = true;
             var self = this;
             var container = document.getElementById(this.containerId);
             if (!container) return;
@@ -288,9 +316,9 @@
                 var tr = this.closest ? this.closest('tr') : null;
                 if (tr) tr.style.opacity = this.checked ? '' : '.5';
             });
-            var addSheet = document.getElementById('awz_export_add_sheet');
-            if (addSheet && !this.singleSheet) {
-                BX.bind(addSheet, 'click', function (e) {
+            // добавить лист (делегированно — кнопка пересоздается при render)
+            if (!this.singleSheet) {
+                BX.bindDelegate(container, 'click', {className: 'awz-export-add-sheet'}, function (e) {
                     BX.PreventDefault(e);
                     self.sheets.push({NAME: 'SHEET' + (self.sheets.length + 1), COLUMNS: self.emptyColumns()});
                     self.render();
@@ -474,7 +502,14 @@
             }
 
             BX.ajax.runAction(this.saveAction, {
-                data: {id: this.id, sheets: sheets}
+                data: {
+                    id: this.id,
+                    sheets: sheets,
+                    json_template: (function () {
+                        var node = document.getElementById('AWZ_ALLXLS_PROFILE_EXPORT_JSON_TEMPLATE');
+                        return node ? node.value : '';
+                    })()
+                }
             }).then(function (response) {
                 self.setStatus(BX.message('AWZ_ALLXLS_EXPORT_SETTINGS_SAVED'));
                 if (next && response.data && response.data.nextStepUrl) {

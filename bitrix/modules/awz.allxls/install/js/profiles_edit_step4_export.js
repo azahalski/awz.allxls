@@ -497,39 +497,91 @@
                 node.innerHTML = '';
                 return;
             }
+            var esc = BX.util.htmlspecialchars;
             var html = '<div class="awz-allxls-card__title" style="font-size:14px;">'
-                + BX.util.htmlspecialchars(BX.message('AWZ_ALLXLS_PROFILE_PROCESS_EXP_DEBUG'))
+                + esc(BX.message('AWZ_ALLXLS_PROFILE_PROCESS_EXP_DEBUG'))
                 + '</div><table class="awz-allxls-stats-table" style="margin-top:6px;border-collapse:collapse;width:100%;">';
             html += '<tr style="background:#e8eef7;">'
                 + '<th style="padding:4px 10px;border:1px solid #e0e5ea;text-align:left;">'
-                + BX.util.htmlspecialchars(BX.message('AWZ_ALLXLS_PROFILE_PROCESS_EXP_DEBUG_COL')) + '</th>'
+                + esc(BX.message('AWZ_ALLXLS_PROFILE_PROCESS_EXP_DEBUG_COL')) + '</th>'
                 + '<th style="padding:4px 10px;border:1px solid #e0e5ea;text-align:left;">'
-                + BX.util.htmlspecialchars(BX.message('AWZ_ALLXLS_PROFILE_PROCESS_EXP_DEBUG_FIELD')) + '</th>'
+                + esc(BX.message('AWZ_ALLXLS_PROFILE_PROCESS_EXP_DEBUG_FIELD')) + '</th>'
                 + '<th style="padding:4px 10px;border:1px solid #e0e5ea;text-align:left;">'
-                + BX.util.htmlspecialchars(BX.message('AWZ_ALLXLS_PROFILE_PROCESS_EXP_DEBUG_RAW')) + '</th>'
+                + esc(BX.message('AWZ_ALLXLS_PROFILE_PROCESS_EXP_DEBUG_RAW')) + '</th>'
                 + '<th style="padding:4px 10px;border:1px solid #e0e5ea;text-align:left;">'
-                + BX.util.htmlspecialchars(BX.message('AWZ_ALLXLS_PROFILE_PROCESS_EXP_DEBUG_VALUE')) + '</th>'
+                + esc(BX.message('AWZ_ALLXLS_PROFILE_PROCESS_EXP_DEBUG_VALUE')) + '</th>'
                 + '</tr>';
             debug.columns.forEach(function (col, idx) {
                 var bg = (idx % 2 === 0) ? '#ffffff' : '#f2f5f9';
                 html += '<tr style="background:' + bg + ';">'
-                    + '<td style="padding:4px 10px;border:1px solid #e0e5ea;">' + BX.util.htmlspecialchars(col.name) + '</td>'
-                    + '<td style="padding:4px 10px;border:1px solid #e0e5ea;">' + BX.util.htmlspecialchars(col.field) + '</td>'
-                    + '<td style="padding:4px 10px;border:1px solid #e0e5ea;">' + BX.util.htmlspecialchars(col.raw) + '</td>'
-                    + '<td style="padding:4px 10px;border:1px solid #e0e5ea;"><b>' + BX.util.htmlspecialchars(col.value) + '</b></td>'
+                    + '<td style="padding:4px 10px;border:1px solid #e0e5ea;">' + esc(col.name) + '</td>'
+                    + '<td style="padding:4px 10px;border:1px solid #e0e5ea;">' + esc(col.field) + '</td>'
+                    + '<td style="padding:4px 10px;border:1px solid #e0e5ea;">' + esc(col.raw) + '</td>'
+                    + '<td style="padding:4px 10px;border:1px solid #e0e5ea;"><b>' + esc(col.value) + '</b></td>'
                     + '</tr>';
             });
             html += '</table>';
+
+            // печать полей записи: сырые значения всех выбираемых полей источника
+            if (debug.raw && debug.raw.length) {
+                html += '<div style="margin-top:10px;font-weight:bold;">Поля записи</div>'
+                    + '<table class="awz-allxls-stats-table" style="margin-top:4px;border-collapse:collapse;width:100%;">'
+                    + '<tr style="background:#e8eef7;">'
+                    + '<th style="padding:4px 10px;border:1px solid #e0e5ea;text-align:left;">Поле</th>'
+                    + '<th style="padding:4px 10px;border:1px solid #e0e5ea;text-align:left;">Значение</th>'
+                    + '</tr>';
+                debug.raw.forEach(function (f, idx) {
+                    var bg = (idx % 2 === 0) ? '#ffffff' : '#f2f5f9';
+                    html += '<tr style="background:' + bg + ';">'
+                        + '<td style="padding:4px 10px;border:1px solid #e0e5ea;">' + esc(String(f.field || '')) + '</td>'
+                        + '<td style="padding:4px 10px;border:1px solid #e0e5ea;">' + esc(String(f.value || '')) + '</td>'
+                        + '</tr>';
+                });
+                html += '</table>';
+            }
+
+            // сработавшие правила обработки
+            if (debug.rules && debug.rules.length) {
+                html += '<div style="margin-top:10px;font-weight:bold;">Сработавшие правила</div><ul style="margin-top:4px;">';
+                debug.rules.forEach(function (r) {
+                    var line = esc(String(r.field || '?')) + ': ' + esc(String(r.type || ''));
+                    if (r.action) line += ' → ' + esc(String(r.action));
+                    if (r.aval) line += ' (' + esc(String(r.aval)) + ')';
+                    html += '<li>' + line + '</li>';
+                });
+                html += '</ul>';
+            }
+
+            // значения всех макросов (для отладки правил)
+            if (debug.macros && Object.keys(debug.macros).length) {
+                html += '<div style="margin-top:10px;font-weight:bold;">Макросы</div><ul style="margin-top:4px;">';
+                Object.keys(debug.macros).forEach(function (k) {
+                    var v = debug.macros[k];
+                    html += '<li>' + esc(k) + ': '
+                        + (Array.isArray(v) ? v.join(' | ') : esc(String(v))) + '</li>';
+                });
+                html += '</ul>';
+            }
+
             html += '<div style="margin-top:6px;">'
-                + BX.util.htmlspecialchars(BX.message('AWZ_ALLXLS_PROFILE_PROCESS_EXP_DEBUG_ELEM')) + ': <b>#'
-                + BX.util.htmlspecialchars(String(debug.element_id || ''))
+                + esc(BX.message('AWZ_ALLXLS_PROFILE_PROCESS_EXP_DEBUG_ELEM')) + ': <b>#'
+                + esc(String(debug.element_id || ''))
                 + '</b>'
-                + (debug.sheet ? ' · ' + BX.util.htmlspecialchars(String(debug.sheet)) : '')
-                + (debug.row ? ' · ' + BX.util.htmlspecialchars(String(debug.row)) : '')
+                + (debug.sheet ? ' · ' + esc(String(debug.sheet)) : '')
+                + (debug.row ? ' · ' + esc(String(debug.row)) : '')
                 + (debug.skip
-                    ? ' · <span style="color:#d9534f;">' + BX.util.htmlspecialchars(String(debug.skip_reason)) + '</span>'
+                    ? ' · <span style="color:#d9534f;">' + esc(String(debug.skip_reason || '')) + '</span>'
                     : '')
                 + '</div>';
+            // пропуск по правилу (JSON, как в импорте)
+            if (debug.skip_rule) {
+                html += '<div style="margin-top:10px;font-weight:bold;color:#d9534f;">Пропуск по правилу</div>'
+                    + '<ul style="margin-top:4px;"><li>' + esc(JSON.stringify(debug.skip_rule)) + '</li>';
+                if (debug.skip_value !== null && debug.skip_value !== undefined && debug.skip_value !== '') {
+                    html += '<li>Значение условия: ' + esc(String(debug.skip_value)) + '</li>';
+                }
+                html += '</ul>';
+            }
             node.innerHTML = html;
         },
 

@@ -19,6 +19,8 @@
         this.savedFilePath = options.savedFilePath || '';
         this.savedExt = options.savedExt || '';
         this.savedXmlPaths = options.savedXmlPaths || '';
+        // пропустить клиентскую проверку XML_PATHS (экспорт: файл — выгрузка)
+        this.skipXmlPaths = !!options.skipXmlPaths;
         this.touched = false;
         this.saving = false;
     };
@@ -149,17 +151,13 @@
         },
 
         /**
-         * Поле «Тип файла» показывается для внешних источников (ссылки/FTP),
-         * у которых в пути может не быть расширения
+         * Поле «Тип файла» показывается всегда — формат можно выбрать
+         * независимо от пути к файлу (локальный путь или внешний источник)
          */
         toggleFileExt: function () {
-            var form = document.getElementById(this.formId);
-            if (!form) return;
-            var input = form.querySelector('[name="FILE_PATH"]');
             var row = document.getElementById('awz_allxls_profile_file_ext_row');
-            if (!input || !row) return;
-            var isExternal = /^(https?|ftps?):\/\//i.test(BX.util.trim(input.value));
-            row.style.display = isExternal ? '' : 'none';
+            if (!row) return;
+            row.style.display = '';
         },
 
         /**
@@ -219,13 +217,17 @@
                 if (ormFile) ormFile.focus();
                 return false;
             }
-            var forcedXml = (data.file_ext === 'xml' || data.file_ext === 'yml' || data.file_ext === 'json');
-            var extXml = /\.(xml|yml|json)(\.gz)?$/i.test(BX.util.trim(data.file_path));
-            if ((forcedXml || extXml) && !data.xml_paths) {
-                this.notify(BX.message('AWZ_ALLXLS_PROFILE_XML_PATHS_EMPTY') || 'Укажите пути до элементов (например: items->item)', 'error');
-                var xmlPaths = document.getElementById('AWZ_ALLXLS_PROFILE_XML_PATHS');
-                if (xmlPaths) xmlPaths.focus();
-                return false;
+            // XML_PATHS требуется только для ИСТОЧНИКА (импорт);
+            // экспорт: .json — расширение файла выгрузки, путь не нужен
+            if (!this.skipXmlPaths) {
+                var forcedXml = (data.file_ext === 'xml' || data.file_ext === 'yml' || data.file_ext === 'json');
+                var extXml = /\.(xml|yml|json)(\.gz)?$/i.test(BX.util.trim(data.file_path));
+                if ((forcedXml || extXml) && !data.xml_paths) {
+                    this.notify(BX.message('AWZ_ALLXLS_PROFILE_XML_PATHS_EMPTY') || 'Укажите пути до элементов (например: items->item)', 'error');
+                    var xmlPaths = document.getElementById('AWZ_ALLXLS_PROFILE_XML_PATHS');
+                    if (xmlPaths) xmlPaths.focus();
+                    return false;
+                }
             }
             return true;
         },

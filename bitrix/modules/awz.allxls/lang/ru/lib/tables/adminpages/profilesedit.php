@@ -7,7 +7,8 @@ $MESS['AWZ_ALLXLS_S_PROFILES_EDIT_NAME'] = 'Название';
 $MESS['AWZ_ALLXLS_S_PROFILES_EDIT_NAME_PH'] = 'Название профиля';
 $MESS['AWZ_ALLXLS_S_PROFILES_EDIT_NAME_DESC'] = 'Обязательное поле';
 $MESS['AWZ_ALLXLS_S_PROFILES_EDIT_ACTIVE'] = 'Активность';
-$MESS['AWZ_ALLXLS_S_PROFILES_EDIT_ACTIVE_DESC'] = 'Неактивный профиль не запускается по расписанию';
+$MESS['AWZ_ALLXLS_S_PROFILES_EDIT_ACTIVE_DESC'] = 'Неактивный профиль не запускается по расписанию, но его можно запустить вручную. Чтобы изменить параметры профиля, запущенного по расписанию, сначала сделайте его неактивным';
+$MESS['AWZ_ALLXLS_S_PROFILES_EDIT_ACTIVE_CRON_WARN'] = 'Профиль запущен по расписанию — параметры заблокированы от изменения. Чтобы их изменить, отключите расписание (шаг 4, «Запускать по расписанию»), сохраните изменения и включите расписание заново';
 $MESS['AWZ_ALLXLS_S_PROFILES_EDIT_SECTION'] = 'Раздел';
 $MESS['AWZ_ALLXLS_S_PROFILES_EDIT_SECTION_EMPTY'] = '— не выбран —';
 $MESS['AWZ_ALLXLS_S_PROFILES_EDIT_SECTION_DESC'] = 'Раздел для группировки профилей в списке';
@@ -141,6 +142,8 @@ $MESS['AWZ_ALLXLS_S_PROFILES_EDIT_STEP4_SYS_SEARCH_NEW'] = 'Индексиров
 $MESS['AWZ_ALLXLS_S_PROFILES_EDIT_STEP4_SYS_SEARCH_UPDATE'] = 'Индексировать измененные элементы для поиска';
 $MESS['AWZ_ALLXLS_S_PROFILES_EDIT_STEP4_SYS_RESIZE'] = 'Использовать настройки инфоблока для обработки изображений';
 $MESS['AWZ_ALLXLS_S_PROFILES_EDIT_STEP4_SYS_UPDATE_ORDER'] = 'Тип обновления';
+$MESS['AWZ_ALLXLS_S_PROFILES_EDIT_STEP4_FINISH_TITLE'] = 'Опции после завершения импорта';
+$MESS['AWZ_ALLXLS_S_PROFILES_EDIT_STEP4_FINISH_SUB'] = 'Выполняются один раз по окончании импорта (или при принудительном завершении)';
 $MESS['AWZ_ALLXLS_S_PROFILES_EDIT_STEP4_SYS_UO_FIELDS'] = 'Сперва поля, затем свойства';
 $MESS['AWZ_ALLXLS_S_PROFILES_EDIT_STEP4_SYS_UO_PROPS'] = 'Сперва свойства, затем поля';
 $MESS['AWZ_ALLXLS_S_PROFILES_EDIT_STEP4_SEC'] = 'сек';
@@ -223,7 +226,7 @@ $MESS['AWZ_ALLXLS_S_PROFILES_EDIT_SRC_TYPE_DESC'] = 'Источник данны
 $MESS['AWZ_ALLXLS_S_PROFILES_EDIT_SRC_IBLOCK_DESC'] = 'Инфоблок, из которого будут выгружаться данные';
 $MESS['AWZ_ALLXLS_S_PROFILES_EDIT_EXPORT_FILE_NAME'] = 'Имя файла выгрузки';
 $MESS['AWZ_ALLXLS_S_PROFILES_EDIT_EXPORT_FILE_NAME_PH'] = 'export';
-$MESS['AWZ_ALLXLS_S_PROFILES_EDIT_EXPORT_FILE_NAME_DESC'] = 'Файл будет создан в папке /upload/awz.allxls/ с выбранным расширением (csv или xls)';
+$MESS['AWZ_ALLXLS_S_PROFILES_EDIT_EXPORT_FILE_NAME_DESC'] = 'Файл будет создан в папке /upload/awz.allxls/ с выбранным расширением';
 
 // === экспорт (шаг 3) ===
 $MESS['AWZ_ALLXLS_S_PROFILES_EDIT_STEP3_EXPORT_TITLE'] = 'Профиль — настройки выгрузки';

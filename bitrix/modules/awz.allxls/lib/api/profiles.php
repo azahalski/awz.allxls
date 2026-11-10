@@ -159,7 +159,7 @@ class Profiles extends \Bitrix\Main\Engine\Controller {
       * @param int $max_params максимальное количество колонок (параметров) из файла импорта (0 — без ограничения)
       * @return array|null
       */
-    public function saveFileAction(int $id = 0, string $file_path = '', string $proxy = '', string $csv_delimiter = ',', string $dest_type = 'iblock', int $iblock_id = 0, string $orm_file = '', string $csv_encoding = 'utf8', string $csv_encoding_custom = '', string $xml_paths = '', int $file_cache_lifetime = -1, string $file_ext = '', int $max_params = 0)
+    public function saveFileAction(int $id = 0, string $file_path = '', string $proxy = '', string $csv_delimiter = ',', string $dest_type = 'iblock', int $iblock_id = 0, string $orm_file = '', string $csv_encoding = 'utf8', string $csv_encoding_custom = '', string $xml_paths = '', int $file_cache_lifetime = -1, string $file_ext = '', int $max_params = 0, string $export_filter = '')
     {
         $id = (int)$id;
         if ($this->cronLockedGuard($id)) return null;
@@ -260,7 +260,7 @@ class Profiles extends \Bitrix\Main\Engine\Controller {
             if ($isExport) {
                 // экспорт: файл выгрузки создается при экспорте, проверяем только путь и расширение
                 $ext = strtolower(pathinfo($filePath, PATHINFO_EXTENSION));
-                if (!in_array($ext, ['csv', 'xlsx'], true)
+                if (!in_array($ext, ['csv', 'xlsx', 'json'], true)
                     || strpos($filePath, '/upload/awz.allxls/') !== 0) {
                     $this->addError(new \Bitrix\Main\Error(
                         Loc::getMessage('AWZ_ALLXLS_API_PROFILES_FILE_EXPORT_INVALID'),
@@ -285,6 +285,10 @@ class Profiles extends \Bitrix\Main\Engine\Controller {
             }
 
             $settings = $profile['SETTINGS'] ?? null;
+            // формат выгрузки (json/csv/xlsx) хранится отдельно (EXPORT_FILE_EXT)
+            if ($isExport) {
+                $settings['EXPORT_FILE_EXT'] = strtolower(pathinfo($filePath, PATHINFO_EXTENSION));
+            }
             $settings['FILE_PATH'] = $filePath;
             $settings['PROXY'] = $proxy;
             // явно заданный тип файла источника (для ссылок без расширения):
@@ -318,9 +322,36 @@ class Profiles extends \Bitrix\Main\Engine\Controller {
             // (0 — без ограничения)
             $settings['MAX_PARAMS'] = max(0, (int)$max_params);
 
-            // для XML/YML/JSON источника пути до элементов обязательны
-            // (тип файла: явный FILE_EXT либо расширение пути)
-            if (in_array($srcExt, ['xml', 'yml', 'json'], true) && !$settings['XML_PATHS']) {
+            // JSON-фильтр выборки элементов для экспорта (необязательно):
+            // хранится как есть (валидность проверяется при сохранении),
+            // передается в сервис-источник экспорта
+            $exportFilter = trim((string)$export_filter);
+            if ($exportFilter !== '') {
+                try {
+                    $decodedFilter = \Bitrix\Main\Web\Json::decode($exportFilter);
+                    if (!is_array($decodedFilter)) {
+                        $this->addError(new \Bitrix\Main\Error(
+                            'JSON-фильтр должен быть объектом или массивом',
+                            'EXPORT_FILTER_INVALID'
+                        ));
+                        return null;
+                    }
+                    $settings['EXPORT_FILTER'] = \Bitrix\Main\Web\Json::encode($decodedFilter);
+                } catch (\Throwable $e) {
+                    $this->addError(new \Bitrix\Main\Error(
+                        'Невалидный JSON-фильтр: '.$e->getMessage(),
+                        'EXPORT_FILTER_INVALID'
+                    ));
+                    return null;
+                }
+            } else {
+                $settings['EXPORT_FILTER'] = '';
+            }
+
+            // для XML/YML/JSON ИСТОЧНИКА (импорт) пути до элементов обязательны.
+            // Для экспорта .json — это расширение ФАЙЛА ВЫГРУЗКИ, источник —
+            // сервис-приемник (XML_PATHS не нужен), проверка не применяется
+            if (!$isExport && in_array($srcExt, ['xml', 'yml', 'json'], true) && !$settings['XML_PATHS']) {
                 $this->addError(new \Bitrix\Main\Error(
                     Loc::getMessage('AWZ_ALLXLS_API_PROFILES_XML_PATHS_EMPTY') ?: 'Не заданы пути до элементов (например: items->item)',
                     'XML_PATHS_EMPTY'
