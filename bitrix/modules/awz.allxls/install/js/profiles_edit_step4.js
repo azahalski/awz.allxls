@@ -355,6 +355,8 @@
                 systemIblockCache: this.getCheckboxValue('awz_allxls_profile_process_sys_iblock_cache') ? 'Y' : 'N',
                 finishCleanMode: this.getOptionValue('awz_allxls_profile_process_finish_clean_mode') || '',
                 finishCleanScope: this.getOptionValue('awz_allxls_profile_process_finish_clean_scope') || 'profile',
+                finishSetPropCode: (document.getElementById('awz_allxls_profile_process_finish_prop_code') || {}).value || '',
+                finishSetPropValue: (document.getElementById('awz_allxls_profile_process_finish_prop_value') || {}).value || '',
                 systemUpdateOrder: this.getOptionValue('awz_allxls_profile_process_sys_update_order') || 'fields_first',
                 stepByStep: this.getCheckboxValue('awz_allxls_profile_process_step_by_step') ? 'Y' : 'N',
                 requestDelay: parseInt(this.getOptionValue(this.requestDelayId), 10) || 0

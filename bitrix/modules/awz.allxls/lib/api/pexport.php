@@ -858,8 +858,42 @@ class Pexport extends \Bitrix\Main\Engine\Controller {
             $process['STATS_VIEW'] = $process['STATS'];
         }
         $settings['PROCESS_EXPORT'] = $process;
+        // событие финализации экспорта (до записи состояния в профиль)
+        $this->fireExportFinishEvent($id, $settings);
         ProfilesTable::update($id, ['SETTINGS' => $settings]);
         return ['finished' => true, 'file_url' => $this->fileUrl((string)($process['FILE'] ?? ''))];
+    }
+
+    /**
+     * Событие финализации экспорта (до записи завершенного состояния в профиль):
+     * 'awz.allxls', 'onAwzAllxlsExportFinish'.
+     * Обработчик может изменить настройки профиля: вернуть EventResult(SUCCESS,
+     * ['settings' => [...]]) — массив заменит SETTINGS перед ProfilesTable::update.
+     *
+     * @param int $id ID профиля
+     * @param array $settings настройки профиля (могут быть заменены обработчиками)
+     */
+    protected function fireExportFinishEvent(int $id, array &$settings): void
+    {
+        try {
+            $event = new \Bitrix\Main\Event('awz.allxls', 'onAwzAllxlsExportFinish', [
+                'profile_id' => $id,
+                'settings' => $settings,
+            ]);
+            $event->send();
+            foreach ($event->getResults() as $result) {
+                if ($result->getType() !== \Bitrix\Main\EventResult::SUCCESS) continue;
+                $params = $result->getParameters();
+                if (is_array($params['settings'] ?? null)) {
+                    $settings = $params['settings'];
+                }
+            }
+        } catch (\Throwable $e) {
+            \Awz\Allxls\Logger::warning(
+                'Ошибка обработчика onAwzAllxlsExportFinish',
+                ['profile_id' => $id, 'error' => $e->getMessage()]
+            );
+        }
     }
 
     /**
@@ -1430,6 +1464,10 @@ class Pexport extends \Bitrix\Main\Engine\Controller {
                 'RUN_STARTED' => $runStarted,
             ];
             $settings['PROCESS_EXPORT'] = $state;
+            // событие финализации экспорта (до записи состояния в профиль)
+            if ($done) {
+                $this->fireExportFinishEvent($id, $settings);
+            }
             ProfilesTable::update($id, ['SETTINGS' => $settings]);
 
             if ($done) {

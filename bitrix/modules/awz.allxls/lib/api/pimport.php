@@ -361,14 +361,20 @@ class Pimport extends Chain\Rules {
                 if (!empty($last['done'])) {
                     $this->deleteSourceCopy((string)($st['PROCESS']['TMP_FILE'] ?? ''));
                     unset($st['PROCESS']['TMP_FILE']);
-                    // сброс кеша инфоблока после завершения импорта
-                    $this->clearIblockCache($id, $st);
-                    // планирование очистки устаревших элементов (агент)
-                    $this->scheduleFinishClean($id, $st);
+                    // событие финализации импорта (до записи состояния в профиль)
+                    $this->fireImportFinishEvent($id, $st);
                 }
                 ProfilesTable::update($id, [
                     'SETTINGS' => $st
                 ]);
+                if (!empty($last['done'])) {
+                    // сброс кеша инфоблока после завершения импорта
+                    $this->clearIblockCache($id, $st);
+                    // установка значения свойства элементам (опция финализации)
+                    $this->applyFinishProp($id, $st);
+                    // планирование очистки устаревших элементов (агент)
+                    $this->scheduleFinishClean($id, $st);
+                }
             }
         }
 
@@ -2646,7 +2652,7 @@ class Pimport extends Chain\Rules {
      * Сохранение параметров запуска обработки в настройках профиля.
      * Вызывается перед стартом обработки.
      */
-    public function saveParamsAction(int $id = 0, int $hitTimeLimit = 20, int $maxExecutionTime = 0, string $logErrors = 'N', string $hashType = 'item', string $hashMemCache = 'N', string $hashUsedColumns = 'N', string $skipIfNotFound = 'N', string $systemReplaceDate = 'N', string $systemFacet = 'Y', string $systemMeta = 'Y', string $systemSearchNew = 'Y', string $systemSearchUpdate = 'Y', string $systemResizePictures = 'N', string $systemUpdateOrder = 'fields_first', string $systemIblockCache = 'N', string $finishCleanMode = '', string $finishCleanScope = 'profile', string $stepByStep = 'N', int $requestDelay = 0)
+    public function saveParamsAction(int $id = 0, int $hitTimeLimit = 20, int $maxExecutionTime = 0, string $logErrors = 'N', string $hashType = 'item', string $hashMemCache = 'N', string $hashUsedColumns = 'N', string $skipIfNotFound = 'N', string $systemReplaceDate = 'N', string $systemFacet = 'Y', string $systemMeta = 'Y', string $systemSearchNew = 'Y', string $systemSearchUpdate = 'Y', string $systemResizePictures = 'N', string $systemUpdateOrder = 'fields_first', string $systemIblockCache = 'N', string $finishCleanMode = '', string $finishCleanScope = 'profile', string $stepByStep = 'N', int $requestDelay = 0, string $finishSetPropCode = '', string $finishSetPropValue = '')
     {
         $id = (int)$id;
         if ($id <= 0) {
@@ -2699,6 +2705,10 @@ class Pimport extends Chain\Rules {
             // охват очистки: 'profile' — текущий профиль, 'section' — профили раздела
             $settings['FINISH_CLEAN_SCOPE'] = ($finishCleanScope === 'section') ? 'section' : 'profile';
             $settings['SYSTEM_UPDATE_ORDER'] = ($systemUpdateOrder === 'props_first') ? 'props_first' : 'fields_first';
+            // установка значения свойства элементам по завершении импорта
+            // (код свойства + значение; пустой код — опция выключена)
+            $settings['FINISH_SET_PROP_CODE'] = strtoupper(trim((string)$finishSetPropCode));
+            $settings['FINISH_SET_PROP_VALUE'] = (string)$finishSetPropValue;
         }
         ProfilesTable::update($id, [
             'SETTINGS' => $settings
@@ -2709,7 +2719,7 @@ class Pimport extends Chain\Rules {
     /**
      * Планирование очистки устаревших элементов после завершения импорта
      * (опции FINISH_CLEAN_*): однократная регистрация агента
-     * Services\iblock::finishCleanAgent(<id>) — сам агент батчами удаляет
+     * Services\iblock::finishCleanAgent(<id>[, <lastId>]) — агент удаляет
      * или деактивирует элементы, не обновлявшиеся с момента запуска
      * завершенных профилей охвата.
      *
@@ -2723,9 +2733,17 @@ class Pimport extends Chain\Rules {
         if (!in_array($mode, ['deactivate', 'delete'], true)) return;
         try {
             $agentName = '\\Awz\\Allxls\\Services\\iblock::finishCleanAgent(' . $id . ');';
+            $agentPrefix = '\Awz\Allxls\Services\iblock::finishCleanAgent(' . $id . ',';
             // идемпотентность: агент для профиля уже зарегистрирован
-            $rs = \CAgent::GetList('', '', ['MODULE_ID' => 'awz.allxls', 'NAME' => $agentName]);
-            if ($rs->Fetch()) return;
+            // (после самоперегистрации имя содержит курсор lastId —
+            // сопоставляем по префиксу вызова)
+            $rs = \CAgent::GetList('', '', ['MODULE_ID' => 'awz.allxls']);
+            while ($row = $rs->Fetch()) {
+                $name = (string)$row['NAME'];
+                if ($name === $agentName || strpos($name, $agentPrefix) === 0) {
+                    return;
+                }
+            }
             \CAgent::AddAgent(
                 $agentName, 'awz.allxls', 'N', 60, '', 'Y',
                 \ConvertTimeStamp(time() + 60, 'FULL')
@@ -2771,6 +2789,99 @@ class Pimport extends Chain\Rules {
             Logger::warning(
                 'Не удалось сбросить кеш инфоблока по завершении импорта',
                 ['profile_id' => $id, 'entity_id' => $entityId, 'error' => $e->getMessage()]
+            );
+        }
+    }
+
+    /**
+     * Событие финализации импорта (до записи завершенного состояния в профиль):
+     * 'awz.allxls', 'onAwzAllxlsImportFinish'.
+     * Обработчик может изменить настройки профиля: вернуть EventResult(SUCCESS,
+     * ['settings' => [...]]) — массив заменит SETTINGS перед ProfilesTable::update.
+     *
+     * @param int $id ID профиля
+     * @param array $settings настройки профиля (могут быть заменены обработчиками)
+     */
+    protected function fireImportFinishEvent(int $id, array &$settings): void
+    {
+        try {
+            $event = new \Bitrix\Main\Event('awz.allxls', 'onAwzAllxlsImportFinish', [
+                'profile_id' => $id,
+                'settings' => $settings,
+            ]);
+            $event->send();
+            foreach ($event->getResults() as $result) {
+                if ($result->getType() !== \Bitrix\Main\EventResult::SUCCESS) continue;
+                $params = $result->getParameters();
+                if (is_array($params['settings'] ?? null)) {
+                    $settings = $params['settings'];
+                }
+            }
+        } catch (\Throwable $e) {
+            Logger::warning(
+                'Ошибка обработчика onAwzAllxlsImportFinish',
+                ['profile_id' => $id, 'error' => $e->getMessage()]
+            );
+        }
+    }
+
+    /**
+     * Установка значения свойства элементам по завершении импорта
+     * (опции FINISH_SET_PROP_CODE/FINISH_SET_PROP_VALUE): элементам инфоблока,
+     * обновлявшимся с момента старта прогона (RUN_STARTED), ставится
+     * PROPERTY_<код> = <значение>; если RUN_STARTED нет — всем элементам
+     * инфоблока. Пустой код свойства — опция выключена.
+     *
+     * @param int $id ID профиля
+     * @param array $settings настройки профиля
+     */
+    protected function applyFinishProp(int $id, array $settings): void
+    {
+        if ((string)($settings['DEST_TYPE'] ?? '') !== 'iblock') return;
+        $propCode = strtoupper(trim((string)($settings['FINISH_SET_PROP_CODE'] ?? '')));
+        if ($propCode === '') return;
+        $propCode = preg_replace('/^PROPERTY_/', '', $propCode);
+        $iblockId = (int)($settings['IBLOCK_ID'] ?? 0);
+        if ($propCode === '' || $iblockId <= 0) return;
+        $value = (string)($settings['FINISH_SET_PROP_VALUE'] ?? '');
+        try {
+            $filter = ['IBLOCK_ID' => $iblockId];
+            $runStarted = (int)($settings['PROCESS']['RUN_STARTED'] ?? 0);
+            if ($runStarted > 0) {
+                $filter['>=TIMESTAMP_X'] = \Bitrix\Main\Type\DateTime::createFromTimestamp($runStarted);
+            }
+            $updated = 0;
+            $lastId = 0;
+            while (true) {
+                $rs = \CIBlockElement::GetList(
+                    ['ID' => 'ASC'],
+                    $filter + ['>ID' => $lastId],
+                    false,
+                    ['nTopCount' => 500],
+                    ['ID']
+                );
+                $ids = [];
+                while ($row = $rs->Fetch()) {
+                    $ids[] = (int)$row['ID'];
+                    $lastId = (int)$row['ID'];
+                }
+                if (!$ids) break;
+                foreach ($ids as $elementId) {
+                    \CIBlockElement::SetPropertyValuesEx($elementId, $iblockId, [$propCode => $value]);
+                    $updated++;
+                }
+            }
+            if ($updated > 0) {
+                Logger::info(
+                    'Установлено значение свойства по завершении импорта',
+                    ['profile_id' => $id, 'iblock_id' => $iblockId,
+                     'property' => $propCode, 'updated' => $updated]
+                );
+            }
+        } catch (\Throwable $e) {
+            Logger::warning(
+                'Не удалось установить значение свойства по завершении импорта',
+                ['profile_id' => $id, 'property' => $propCode, 'error' => $e->getMessage()]
             );
         }
     }
@@ -2837,11 +2948,15 @@ class Pimport extends Chain\Rules {
             }
         }
         $settings['PROCESS'] = $process;
+        // событие финализации импорта (до записи состояния в профиль)
+        $this->fireImportFinishEvent($id, $settings);
         ProfilesTable::update($id, [
             'SETTINGS' => $settings
         ]);
         // сброс кеша инфоблока при принудительном завершении импорта
         $this->clearIblockCache($id, $settings);
+        // установка значения свойства элементам (опция финализации)
+        $this->applyFinishProp($id, $settings);
         // планирование очистки устаревших элементов (агент)
         $this->scheduleFinishClean($id, $settings);
         return ['finished' => true];

@@ -12,3 +12,7 @@ $MESS['AWZ_ALLXLS_SERVICES_IBLOCK_FINISH_CLEAN_SCOPE_PROFILE'] = 'Текущий
 $MESS['AWZ_ALLXLS_SERVICES_IBLOCK_FINISH_CLEAN_SCOPE_SECTION'] = 'Профили раздела';
 $MESS['AWZ_ALLXLS_SERVICES_IBLOCK_FINISH_CLEAN_LAST'] = 'Последняя очистка';
 $MESS['AWZ_ALLXLS_SERVICES_IBLOCK_FINISH_CLEAN_CONT'] = 'продолжается агентом';
+$MESS['AWZ_ALLXLS_SERVICES_IBLOCK_FINISH_SET_PROP'] = 'Свойство по завершении';
+$MESS['AWZ_ALLXLS_SERVICES_IBLOCK_FINISH_SET_PROP_HELP'] = 'По окончании импорта элементам инфоблока, обновлявшимся с момента запуска прогона (RUN_STARTED), устанавливается значение указанного свойства (PROPERTY_<КОД> = значение). Пустой код — опция выключена.';
+$MESS['AWZ_ALLXLS_SERVICES_IBLOCK_FINISH_SET_PROP_CODE'] = 'Код свойства';
+$MESS['AWZ_ALLXLS_SERVICES_IBLOCK_FINISH_SET_PROP_VALUE'] = 'Значение свойства';

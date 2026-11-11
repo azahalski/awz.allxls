@@ -11,8 +11,6 @@ use Awz\Allxls\Tables\ProfilesTable;
 
 class iblock implements Base
 {
-    /** @var int размер батча агента очистки устаревших элементов */
-    const FINISH_CLEAN_BATCH = 200;
     /** @var float лимит времени одного шага агента очистки, сек */
     const FINISH_CLEAN_TIME_LIMIT = 20.0;
     /**
@@ -116,12 +114,13 @@ class iblock implements Base
             throw new \RuntimeException((string)$el->LAST_ERROR);
         }
 
-        $this->applySystemOptions((int)$entityId, (int)$newId, $system);
         $this->applyCatalog((int)$entityId, (int)$newId, $catalog ?? []);
         // привязка множественных разделов (основной уже установлен через IBLOCK_SECTION)
         if (is_array($sectionList) && count($sectionList) > 1) {
             \CIBlockElement::SetElementSection((int)$newId, $sectionList, true, (int)$entityId);
         }
+
+        $this->applySystemOptions((int)$entityId, (int)$newId, $system);
 
         return (int)$newId;
     }
@@ -250,12 +249,13 @@ class iblock implements Base
             throw new \RuntimeException((string)$el->LAST_ERROR."\n".json_encode($saveFields, JSON_UNESCAPED_UNICODE));
         }
 
-        $this->applySystemOptions((int)$entityId, (int)$id, $system);
         $this->applyCatalog((int)$entityId, (int)$id, $catalog);
         // привязка множественных разделов (основной уже установлен через IBLOCK_SECTION)
         if ($hasSections) {
             \CIBlockElement::SetElementSection((int)$id, $sectionList, true, (int)$entityId);
         }
+
+        $this->applySystemOptions((int)$entityId, (int)$id, $system);
 
         return true;
     }
@@ -375,12 +375,13 @@ class iblock implements Base
         static $productKeys = [
             'WEIGHT', 'WIDTH', 'LENGTH', 'HEIGHT', 'QUANTITY', 'QUANTITY_RESERVED',
             'MEASURE', 'VAT_ID', 'PURCHASING_PRICE', 'PURCHASING_CURRENCY',
-            'VAT_INCLUDED', 'CAN_BUY_ZERO', 'NEGATIVE_AMOUNT_TRACE', 'QUANTITY_TRACE',
+            'VAT_INCLUDED', 'CAN_BUY_ZERO', 'NEGATIVE_AMOUNT_TRACE', 'QUANTITY_TRACE'
         ];
         // флаговые поля товара (Y/N): значения нормализуются к 'Y'/'N'
         static $flagKeys = [
             'VAT_INCLUDED', 'CAN_BUY_ZERO', 'NEGATIVE_AMOUNT_TRACE', 'QUANTITY_TRACE',
         ];
+
         try {
             $productFields = [];
 
@@ -442,7 +443,9 @@ class iblock implements Base
                 }
                 $productFields[$key] = $v;
             }
-            if ($productFields) {
+
+            if (!empty($productFields)) {
+
                 // обновление вхолостую не нужно: сравниваем подготовленные
                 // значения с текущими (все поля товара получены выше);
                 // числа сравниваются как числа (значения из файла приходят строками),
@@ -462,10 +465,15 @@ class iblock implements Base
                         $diffFields[$key] = $v;
                     }
                 }
-                if ($diffFields) {
+                if (!empty($diffFields)) {
                     // UF-поля товара (например UF_PRODUCT_GROUP) передаются
                     // вместе со стандартными: CCatalogProduct::Update их сохраняет
-                    \CCatalogProduct::Update($elementId, $diffFields);
+                    $catalogUpdateResult = \CCatalogProduct::Update($elementId, $diffFields);
+                    Logger::debug('CCatalogProduct::Update', [
+                        'element_id' => $elementId,
+                        'fields' => $diffFields,
+                        'result' => $catalogUpdateResult ? 'Y' : 'N',
+                    ]);
                 }
             }
         } catch (\Throwable $e) {
@@ -3039,6 +3047,33 @@ class iblock implements Base
             .'</div>'
         .'</div>';
 
+        // установка значения свойства элементам по завершении импорта
+        $propCode = (string)($settings['FINISH_SET_PROP_CODE'] ?? '');
+        $propValue = (string)($settings['FINISH_SET_PROP_VALUE'] ?? '');
+        $propLabel = Loc::getMessage('AWZ_ALLXLS_SERVICES_IBLOCK_FINISH_SET_PROP') ?: 'Свойство по завершении';
+        $propHelp = trim((string)(Loc::getMessage('AWZ_ALLXLS_SERVICES_IBLOCK_FINISH_SET_PROP_HELP') ?: ''));
+        $propHelpHtml = $propHelp !== ''
+            ? '<span class="awz-help" tabindex="0"><span class="awz-help__popup">'
+                .htmlspecialcharsbx($propHelp).'</span>?</span>'
+            : '';
+        $propCodePlaceholder = Loc::getMessage('AWZ_ALLXLS_SERVICES_IBLOCK_FINISH_SET_PROP_CODE')
+            ?: 'Код свойства';
+        $propValuePlaceholder = Loc::getMessage('AWZ_ALLXLS_SERVICES_IBLOCK_FINISH_SET_PROP_VALUE')
+            ?: 'Значение свойства';
+        $html .= '<div class="awz-opt-row">'
+            .'<span class="awz-opt-row__label">'.htmlspecialcharsbx($propLabel).$propHelpHtml.'</span>'
+            .'<div class="awz-opt-row__control">'
+                .'<input type="text" id="awz_allxls_profile_process_finish_prop_code"'
+                    .' value="'.htmlspecialcharsbx($propCode).'"'
+                    .' placeholder="'.htmlspecialcharsbx($propCodePlaceholder).'"'
+                    .' style="width:150px;margin-right:6px;">'
+                .'<input type="text" id="awz_allxls_profile_process_finish_prop_value"'
+                    .' value="'.htmlspecialcharsbx($propValue).'"'
+                    .' placeholder="'.htmlspecialcharsbx($propValuePlaceholder).'"'
+                    .' style="width:150px;">'
+            .'</div>'
+        .'</div>';
+
         // информация о последней очистке (заполняется агентом) — возле опций
         $process = is_array($settings['PROCESS'] ?? null) ? $settings['PROCESS'] : [];
         $info = is_array($process['FINISH_CLEAN_INFO'] ?? null) ? $process['FINISH_CLEAN_INFO'] : [];
@@ -3099,13 +3134,17 @@ class iblock implements Base
      * (RUN_STARTED) завершенных профилей: охват — текущий профиль или все
      * завершенные импорт-профили раздела с тем же инфоблоком-приемником
      * (порог = минимум RUN_STARTED). Регистрируется однократно при
-     * завершении импорта (Pimport::scheduleFinishClean), обрабатывает
-     * элементы батчами и перерегистрирует себя, пока есть кандидаты.
+     * завершении импорта (Pimport::scheduleFinishClean). Обработка
+     * ограничена только временем шага (FINISH_CLEAN_TIME_LIMIT); прогресс
+     * ведется по ID элемента (фильтр >ID + <=TIMESTAMP_X порога), при
+     * наличии остатка агент возвращает самого себя (стандартное
+     * перерегистрирование агента в Bitrix), иначе '' (завершение).
      *
      * @param int $profileId ID профиля
-     * @return string '' — агент завершен, строка даты — следующий запуск
+     * @param int $lastId ID последнего обработанного элемента (курсор)
+     * @return string '' — агент завершен, имя агента — следующий запуск
      */
-    public static function finishCleanAgent(int $profileId = 0): string
+    public static function finishCleanAgent(int $profileId = 0, int $lastId = 0): string
     {
         if ($profileId <= 0) return '';
         try {
@@ -3138,41 +3177,52 @@ class iblock implements Base
             if (!$starts) return '';
             $threshold = \Bitrix\Main\Type\DateTime::createFromTimestamp(min($starts));
 
-            // батч кандидатов: элементы старше порога
-            $filter = ['IBLOCK_ID' => $iblockId, '<=TIMESTAMP_X' => $threshold];
+            // кандидаты: элементы старше порога, после курсора последнего
+            // обработанного ID (прогресс между шагами агента)
+            $filter = [
+                'IBLOCK_ID' => $iblockId,
+                '<=TIMESTAMP_X' => $threshold,
+                '>ID' => $lastId,
+            ];
             if ($mode === 'deactivate') $filter['ACTIVE'] = 'Y';
-            $res = \CIBlockElement::GetList(
-                ['ID' => 'ASC'], $filter, false,
-                ['nTopCount' => self::FINISH_CLEAN_BATCH], ['ID']
-            );
-            $ids = [];
-            while ($el = $res->Fetch()) $ids[] = (int)$el['ID'];
-            if (!$ids) return '';
 
             $ok = 0;
             $fail = 0;
             $processed = 0;
             $hitTimeLimit = false;
             $deadline = microtime(true) + self::FINISH_CLEAN_TIME_LIMIT;
-            foreach ($ids as $elementId) {
-                // лимит времени шага агента: по истечении — следующий шаг агентом
-                if (microtime(true) >= $deadline && $processed > 0) {
-                    $hitTimeLimit = true;
-                    break;
-                }
-                try {
-                    if ($mode === 'delete') {
-                        // внешнее удаление: событие OnBeforeIBlockElementDelete
-                        // очищает хеши элемента (повторный импорт возможен)
-                        $ok += \CIBlockElement::Delete($elementId) ? 1 : 0;
-                    } else {
-                        $el = new \CIBlockElement(false);
-                        $ok += $el->Update($elementId, ['ACTIVE' => 'N']) ? 1 : 0;
+            // без ограничения по количеству элементов — только по времени;
+            // выборка чанками по 500 с курсором по ID
+            while (microtime(true) < $deadline) {
+                $res = \CIBlockElement::GetList(
+                    ['ID' => 'ASC'], $filter, false,
+                    ['nTopCount' => 500], ['ID']
+                );
+                $ids = [];
+                while ($el = $res->Fetch()) $ids[] = (int)$el['ID'];
+                if (!$ids) break;
+                foreach ($ids as $elementId) {
+                    if (microtime(true) >= $deadline && $processed > 0) {
+                        $hitTimeLimit = true;
+                        break;
                     }
-                } catch (\Throwable $e) {
-                    $fail++;
+                    try {
+                        if ($mode === 'delete') {
+                            // внешнее удаление: событие OnBeforeIBlockElementDelete
+                            // очищает хеши элемента (повторный импорт возможен)
+                            $ok += \CIBlockElement::Delete($elementId) ? 1 : 0;
+                        } else {
+                            $el = new \CIBlockElement(false);
+                            $ok += $el->Update($elementId, ['ACTIVE' => 'N']) ? 1 : 0;
+                        }
+                    } catch (\Throwable $e) {
+                        $fail++;
+                    }
+                    $processed++;
+                    $lastId = $elementId;
+                    $filter['>ID'] = $lastId;
                 }
-                $processed++;
+                if ($hitTimeLimit) break;
             }
             Logger::info(
                 'Очистка устаревших элементов после импорта',
@@ -3182,6 +3232,7 @@ class iblock implements Base
                     'mode' => $mode,
                     'scope' => $scopeSection !== null ? 'section' : 'profile',
                     'threshold' => $threshold->format('Y-m-d H:i:s'),
+                    'last_id' => $lastId,
                     'batch' => $processed,
                     'ok' => $ok,
                     'fail' => $fail,
@@ -3189,7 +3240,7 @@ class iblock implements Base
                 ]
             );
             // итог очистки — для показа в блоке «Опции после завершения импорта»
-            $moreCandidates = $hitTimeLimit || $processed >= self::FINISH_CLEAN_BATCH;
+            $moreCandidates = $hitTimeLimit;
             self::saveFinishCleanInfo($profileId, [
                 'DATE' => date('Y-m-d H:i:s'),
                 'MODE' => $mode,
@@ -3200,9 +3251,12 @@ class iblock implements Base
                 'FAIL' => $fail,
                 'DONE' => $moreCandidates ? 'N' : 'Y',
             ]);
-            // остались кандидаты — следующий шаг агента
+            // остались кандидаты — агент возвращает самого себя
+            // (стандартное перерегистрирование: имя агента заменяется,
+            // интервал сохраняется)
             if ($moreCandidates) {
-                return \ConvertTimeStamp(time() + 10, 'FULL');
+                return '\Awz\Allxls\Services\iblock::finishCleanAgent('
+                    . $profileId . ', ' . $lastId . ');';
             }
             return '';
         } catch (\Throwable $e) {
